@@ -121,15 +121,20 @@ class CalendarAgent:
                     if not start_time_str:
                         continue
                     
-                    # 简单的时间解析（可能需要根据实际格式调整）
+                    # 解析事件开始时间（支持多种格式）
                     try:
-                        if 'T' in start_time_str:
-                            start_time = datetime.fromisoformat(start_time_str.replace('Z', '+00:00'))
-                        else:
+                        # 首先尝试ISO格式（支持时区）
+                        start_time = datetime.fromisoformat(start_time_str.replace('Z', '+00:00'))
+                        # 如果有时区信息，转换为naive datetime进行比较
+                        if start_time.tzinfo:
+                            start_time = start_time.replace(tzinfo=None)
+                    except ValueError:
+                        try:
+                            # 如果ISO格式失败，尝试标准格式
                             start_time = datetime.strptime(start_time_str, '%Y-%m-%d %H:%M:%S')
-                    except:
-                        print(f"⚠️ 无法解析时间格式: {start_time_str}")
-                        continue
+                        except ValueError:
+                            print(f"⚠️ 无法解析时间格式: {start_time_str}")
+                            continue
                     
                     # 计算提醒时间
                     remind_minutes = event['result'].get('minutes_before_remind', 15)

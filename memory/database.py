@@ -83,7 +83,7 @@ def get_events_to_remind():
             SELECT id, uid, summary, description, start_time, result 
             FROM events 
             WHERE reminded = 0 
-            AND json_extract(result, '$.need_remind') = 'true'
+            AND json_extract(result, '$.need_remind') = 1
             ORDER BY start_time
         """)
         
@@ -145,7 +145,7 @@ def get_stats():
         total_events = c.fetchone()[0]
         
         # 需要提醒的事件数
-        c.execute("SELECT COUNT(*) FROM events WHERE json_extract(result, '$.need_remind') = 'true'")
+        c.execute("SELECT COUNT(*) FROM events WHERE json_extract(result, '$.need_remind') = 1")
         remind_events = c.fetchone()[0]
         
         # 已提醒的事件数

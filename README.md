@@ -25,7 +25,7 @@ Dummy Schedule Manager 是一个基于 Gemini API（可切换为 DeepSeek API）
 
 1. **克隆项目**
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/Taskkillsqc/dummy-schedule-manager.git
    cd dummy-schedule-manager
    ```
 
