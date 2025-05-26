@@ -289,6 +289,24 @@ nano config.yaml
 
 欢迎提交 Issue 和 Pull Request！
 
+### 开发环境设置
+
+1. Fork 这个仓库
+2. 创建您的功能分支 (`git checkout -b feature/AmazingFeature`)
+3. 安装开发依赖 (`pip install -r requirements.txt`)
+4. 复制并配置 `config.yaml` (`cp config.yaml.example config.yaml`)
+5. 运行完整性检查 (`python check.py`)
+6. 提交您的更改 (`git commit -m 'Add some AmazingFeature'`)
+7. 推送到分支 (`git push origin feature/AmazingFeature`)
+8. 开启一个 Pull Request
+
+### 代码规范
+
+- 遵循 PEP 8 Python 代码规范
+- 添加必要的注释和文档字符串
+- 在提交前运行 `python check.py` 确保所有检查通过
+- 保持敏感信息不被提交（使用 .gitignore）
+
 ## 📄 许可证
 
 MIT License
