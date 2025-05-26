@@ -2,7 +2,20 @@ import time
 import os
 import signal
 import sys
+import logging
+import warnings
 from datetime import datetime, timedelta
+
+# 在导入caldav相关模块之前设置日志抑制
+logging.getLogger().setLevel(logging.CRITICAL)
+logging.getLogger('caldav').setLevel(logging.CRITICAL)
+logging.getLogger('root').setLevel(logging.CRITICAL)
+warnings.filterwarnings("ignore")
+
+# 抑制urllib3的OpenSSL警告
+import urllib3
+urllib3.disable_warnings()
+
 from caldav_client.caldav_client import get_upcoming_events
 from ai.gemini_agent import analyze_event
 from memory.database import init_db, save_event_analysis, get_events_to_remind, mark_reminded, get_stats, cleanup_old_events
@@ -15,6 +28,9 @@ REMIND_CHECK_INTERVAL = 60  # 每1分钟检查一次是否需要发送提醒
 
 class CalendarAgent:
     def __init__(self):
+        # 配置日志级别，抑制不必要的错误信息
+        self.configure_logging()
+        
         self.running = True
         self.last_fetch_time = None
         self.last_remind_check = None
@@ -22,6 +38,22 @@ class CalendarAgent:
         # 注册信号处理器，用于优雅关闭
         signal.signal(signal.SIGINT, self.signal_handler)
         signal.signal(signal.SIGTERM, self.signal_handler)
+    
+    def configure_logging(self):
+        """配置日志级别，抑制CalDAV兼容性错误"""
+        # 抑制根日志器的ERROR级别消息
+        root_logger = logging.getLogger()
+        root_logger.setLevel(logging.CRITICAL)
+        
+        # 特别针对caldav模块
+        caldav_logger = logging.getLogger('caldav')
+        caldav_logger.setLevel(logging.CRITICAL)
+        
+        # 抑制所有WARNING级别的消息
+        logging.getLogger().handlers = []
+        logging.basicConfig(level=logging.CRITICAL)
+        
+        print("🔇 已抑制CalDAV兼容性错误消息")
     
     def signal_handler(self, signum, frame):
         """处理关闭信号"""
@@ -107,7 +139,8 @@ class CalendarAgent:
                     if current_time >= remind_time:
                         print(f"🔔 发送提醒: {event.get('summary', '未知事件')}")
                         
-                        if send_notification(event, event['result'], CONFIG['webhook_url']):
+                        webhook_type = CONFIG.get('webhook_type', 'generic')
+                        if send_notification(event, event['result'], CONFIG['webhook_url'], webhook_type):
                             mark_reminded(event['id'], "sent")
                         else:
                             mark_reminded(event['id'], "failed")
@@ -149,7 +182,8 @@ class CalendarAgent:
         # 发送测试通知（可选）
         if CONFIG.get('webhook_url') and CONFIG['webhook_url'] != "https://your.gitify.endpoint/webhook":
             print("\n🧪 发送测试通知...")
-            if send_test_notification(CONFIG['webhook_url']):
+            webhook_type = CONFIG.get('webhook_type', 'generic')
+            if send_test_notification(CONFIG['webhook_url'], webhook_type):
                 print("✅ 测试通知发送成功")
             else:
                 print("❌ 测试通知发送失败，请检查webhook配置")

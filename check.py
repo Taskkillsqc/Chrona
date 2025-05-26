@@ -113,6 +113,13 @@ def check_configuration():
             else:
                 print(f"  ✅ {key}")
         
+        # 检查可选的 webhook_type 配置
+        webhook_type = config.get('webhook_type', 'generic')
+        print(f"  ✅ webhook_type ({webhook_type})")
+        
+        if webhook_type not in ['gotify', 'slack', 'generic']:
+            print(f"  ⚠️  不支持的 webhook_type: {webhook_type}，将使用 generic 格式")
+        
         if missing_keys:
             print(f"\n❌ 配置文件缺少字段:")
             for key in missing_keys:
@@ -205,9 +212,9 @@ def check_docker():
     
     return True
 
-def check_gotify_push():
-    """检查Gotify推送功能"""
-    print("\n📱 检查Gotify推送功能...")
+def check_webhook_push():
+    """检查Webhook推送功能（支持不同类型）"""
+    print("\n📱 检查Webhook推送功能...")
     
     try:
         # 加载配置
@@ -215,75 +222,125 @@ def check_gotify_push():
             config = yaml.safe_load(f)
         
         webhook_url = config.get('webhook_url')
+        webhook_type = config.get('webhook_type', 'generic')
+        
         if not webhook_url:
             print("❌ 配置文件中未找到webhook_url")
             return False
         
         print(f"📡 Webhook URL: {webhook_url}")
+        print(f"🔧 Webhook类型: {webhook_type}")
         
         # 生成6位随机验证码
         verification_code = str(random.randint(100000, 999999))
-        print(f"🔢 生成验证码: {verification_code}")
         
-        # 构建推送消息
-        message_data = {
-            "title": "🔍 Dummy Schedule Manager 验证",
-            "message": f"验证码: {verification_code}\n\n请在终端中输入此验证码以确认Gotify推送功能正常工作。",
-            "priority": 5
-        }
-        
-        print("📤 正在发送验证码到Gotify...")
-        
-        try:
-            response = requests.post(webhook_url, json=message_data, timeout=10)
-            
-            if response.status_code == 200:
-                print("✅ 验证码已发送到Gotify")
-                
-                # 等待用户输入验证码
-                print("\n📱 请检查您的Gotify应用，然后输入收到的6位验证码:")
-                
-                max_attempts = 3
-                for attempt in range(max_attempts):
-                    try:
-                        user_input = input("验证码 (6位数字): ").strip()
-                        
-                        if user_input == verification_code:
-                            print("✅ 验证码正确！Gotify推送功能正常工作")
-                            return True
-                        else:
-                            remaining = max_attempts - attempt - 1
-                            if remaining > 0:
-                                print(f"❌ 验证码错误，还有 {remaining} 次机会")
-                            else:
-                                print("❌ 验证码错误次数过多")
-                    except KeyboardInterrupt:
-                        print("\n⚠️ 用户取消验证")
-                        return False
-                    except Exception as e:
-                        print(f"❌ 输入错误: {e}")
-                        return False
-                
-                print("❌ Gotify推送验证失败")
-                return False
-                
-            else:
-                print(f"❌ 发送失败: HTTP {response.status_code}")
-                print(f"响应: {response.text}")
-                return False
-                
-        except requests.exceptions.Timeout:
-            print("❌ 请求超时，请检查网络连接和Gotify服务器状态")
-            return False
-        except requests.exceptions.ConnectionError:
-            print("❌ 连接失败，请检查网络连接和Gotify服务器地址")
-            return False
-        except Exception as e:
-            print(f"❌ 发送请求失败: {e}")
-            return False
+        # 根据webhook类型构建不同格式的消息
+        if webhook_type == "gotify":
+            return check_gotify_push_specific(webhook_url, verification_code)
+        elif webhook_type == "slack":
+            return check_slack_push_specific(webhook_url, verification_code)
+        else:
+            return check_generic_push_specific(webhook_url, verification_code)
             
     except Exception as e:
-        print(f"❌ Gotify推送检查失败: {e}")
+        print(f"❌ Webhook推送检查失败: {e}")
+        return False
+
+def check_gotify_push_specific(webhook_url, verification_code):
+    """检查Gotify格式推送"""
+    message_data = {
+        "title": "🔍 Dummy Schedule Manager 验证",
+        "message": f"验证码: {verification_code}\n\n请在终端中输入此验证码以确认Gotify推送功能正常工作。",
+        "priority": 5,
+        "extras": {
+            "client::display": {
+                "contentType": "text/markdown"
+            }
+        }
+    }
+    
+    print("📤 正在发送Gotify格式验证码...")
+    return send_verification_and_check(webhook_url, message_data, verification_code)
+
+def check_slack_push_specific(webhook_url, verification_code):
+    """检查Slack格式推送"""
+    message_data = {
+        "text": "🔍 Dummy Schedule Manager 验证",
+        "blocks": [
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"*🔍 Dummy Schedule Manager 验证*\n\n验证码: `{verification_code}`\n\n请在终端中输入此验证码以确认Slack推送功能正常工作。"
+                }
+            }
+        ]
+    }
+    
+    print("📤 正在发送Slack格式验证码...")
+    return send_verification_and_check(webhook_url, message_data, verification_code)
+
+def check_generic_push_specific(webhook_url, verification_code):
+    """检查通用格式推送"""
+    from datetime import datetime
+    
+    message_data = {
+        "title": "🔍 Dummy Schedule Manager 验证",
+        "body": f"验证码: {verification_code}\n\n请在终端中输入此验证码以确认Webhook推送功能正常工作。",
+        "timestamp": datetime.now().isoformat()
+    }
+    
+    print("📤 正在发送通用格式验证码...")
+    return send_verification_and_check(webhook_url, message_data, verification_code)
+
+def send_verification_and_check(webhook_url, message_data, verification_code):
+    """发送验证码并检查用户输入"""
+    try:
+        response = requests.post(webhook_url, json=message_data, timeout=10)
+        
+        if response.status_code == 200:
+            print("✅ 验证码已发送")
+            
+            # 等待用户输入验证码
+            print("\n📱 请检查您的通知应用，然后输入收到的6位验证码:")
+            
+            max_attempts = 3
+            for attempt in range(max_attempts):
+                try:
+                    user_input = input("验证码 (6位数字): ").strip()
+                    
+                    if user_input == verification_code:
+                        print("✅ 验证码正确！Webhook推送功能正常工作")
+                        return True
+                    else:
+                        remaining = max_attempts - attempt - 1
+                        if remaining > 0:
+                            print(f"❌ 验证码错误，还有 {remaining} 次机会")
+                        else:
+                            print("❌ 验证码错误次数过多")
+                except KeyboardInterrupt:
+                    print("\n⚠️ 用户取消验证")
+                    return False
+                except Exception as e:
+                    print(f"❌ 输入错误: {e}")
+                    return False
+            
+            print("❌ Webhook推送验证失败")
+            return False
+            
+        else:
+            print(f"❌ 发送失败: HTTP {response.status_code}")
+            print(f"响应: {response.text}")
+            return False
+            
+    except requests.exceptions.Timeout:
+        print("❌ 请求超时，请检查网络连接和Webhook服务器状态")
+        return False
+    except requests.exceptions.ConnectionError:
+        print("❌ 连接失败，请检查网络连接和Webhook服务器地址")
+        return False
+    except Exception as e:
+        print(f"❌ 发送请求失败: {e}")
         return False
 
 def show_usage_instructions():
@@ -321,7 +378,7 @@ def main():
         ("配置检查", check_configuration),
         ("权限检查", check_permissions),
         ("Docker检查", check_docker),
-        ("Gotify推送检查", check_gotify_push),
+        ("Webhook推送检查", check_webhook_push),
     ]
     
     passed = 0

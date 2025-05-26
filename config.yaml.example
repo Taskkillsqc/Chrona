@@ -8,6 +8,7 @@ caldav:
 
 database: "./data/agent.db"
 webhook_url: "http://66.117.9.76:8080/message?token=YOUR_GOTIFY_TOKEN"  # Gotify webhook URL
+webhook_type: "gotify"  # gotify, slack, or generic
 
 # 可选配置
 settings:

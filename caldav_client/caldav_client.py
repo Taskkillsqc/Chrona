@@ -1,6 +1,11 @@
 from caldav import DAVClient
 from datetime import datetime, timedelta
 import logging
+import warnings
+
+# 抑制CalDAV兼容性警告
+logging.getLogger('root').setLevel(logging.WARNING)
+warnings.filterwarnings("ignore", category=UserWarning, module="caldav")
 
 class CalDAVClient:
     """CalDAV 客户端，用于连接和获取日历事件"""

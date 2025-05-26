@@ -2,8 +2,73 @@ import requests
 import json
 from datetime import datetime
 
-def send_notification(event, result, webhook_url):
+def send_notification(event, result, webhook_url, webhook_type="generic"):
     """发送Webhook通知"""
+    try:
+        # 根据webhook类型构造不同格式的数据
+        if webhook_type == "gotify":
+            return send_gotify_notification(event, result, webhook_url)
+        elif webhook_type == "slack":
+            return send_slack_notification(event, result, webhook_url)
+        else:
+            return send_generic_notification(event, result, webhook_url)
+            
+    except Exception as e:
+        print(f"❌ 发送通知时出现未知错误: {e}")
+        return False
+
+def send_gotify_notification(event, result, webhook_url):
+    """发送Gotify格式的通知"""
+    try:
+        # Gotify消息格式
+        title = f"📅 日程提醒: {event.get('summary', '未知事件')}"
+        message = format_notification_body(event, result)
+        
+        # 根据重要性设置优先级
+        priority = 8 if result.get('important', False) else 5
+        
+        data = {
+            "title": title,
+            "message": message,
+            "priority": priority,
+            "extras": {
+                "client::display": {
+                    "contentType": "text/markdown"
+                },
+                "event": {
+                    "summary": event.get('summary', ''),
+                    "description": event.get('description', ''),
+                    "start_time": event.get('start_time', ''),
+                    "uid": event.get('uid', '')
+                },
+                "analysis": result
+            }
+        }
+        
+        # 发送POST请求到Gotify
+        response = requests.post(
+            webhook_url, 
+            json=data,
+            headers={"Content-Type": "application/json"},
+            timeout=10
+        )
+        
+        if response.status_code == 200:
+            print(f"✅ Gotify通知发送成功: {event.get('summary', '')}")
+            return True
+        else:
+            print(f"❌ Gotify通知发送失败 ({response.status_code}): {event.get('summary', '')}")
+            return False
+            
+    except requests.RequestException as e:
+        print(f"❌ 网络错误，Gotify通知发送失败: {e}")
+        return False
+    except Exception as e:
+        print(f"❌ 发送Gotify通知时出现未知错误: {e}")
+        return False
+
+def send_generic_notification(event, result, webhook_url):
+    """发送通用格式的Webhook通知"""
     try:
         # 构造通知数据
         data = {
@@ -67,7 +132,7 @@ def format_notification_body(event, result):
     
     return "\n".join(lines)
 
-def send_test_notification(webhook_url):
+def send_test_notification(webhook_url, webhook_type="generic"):
     """发送测试通知"""
     test_event = {
         'summary': '测试通知',
@@ -84,7 +149,7 @@ def send_test_notification(webhook_url):
         'reason': '系统测试'
     }
     
-    return send_notification(test_event, test_result, webhook_url)
+    return send_notification(test_event, test_result, webhook_url, webhook_type)
 
 def send_slack_notification(event, result, slack_webhook_url):
     """发送Slack格式的通知（可选）"""

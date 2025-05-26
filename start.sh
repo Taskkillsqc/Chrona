@@ -43,7 +43,7 @@ if [ -f "requirements.txt" ]; then
     python3 -m pip install -r requirements.txt
 else
     echo "⚠️  requirements.txt 不存在，手动安装依赖..."
-    python3 -m pip install caldav PyYAML requests vobject
+    python3 -m pip install caldav PyYAML requests vobject pytz
 fi
 
 # 验证配置
