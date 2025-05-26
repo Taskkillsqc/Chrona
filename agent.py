@@ -4,6 +4,7 @@ import signal
 import sys
 import logging
 import warnings
+import pytz
 from datetime import datetime, timedelta
 
 # 在导入caldav相关模块之前设置日志抑制
@@ -112,7 +113,8 @@ class CalendarAgent:
             if not events_to_remind:
                 return
             
-            current_time = datetime.now()
+            # 获取当前UTC时间，统一使用UTC进行比较
+            current_time_utc = datetime.now(pytz.UTC)
             
             for event in events_to_remind:
                 try:
@@ -122,27 +124,42 @@ class CalendarAgent:
                         continue
                     
                     # 解析事件开始时间（支持多种格式）
+                    start_time_utc = None
                     try:
                         # 首先尝试ISO格式（支持时区）
                         start_time = datetime.fromisoformat(start_time_str.replace('Z', '+00:00'))
-                        # 如果有时区信息，转换为naive datetime进行比较
+                        # 转换为UTC时间进行统一比较
                         if start_time.tzinfo:
-                            start_time = start_time.replace(tzinfo=None)
+                            start_time_utc = start_time.astimezone(pytz.UTC)
+                        else:
+                            # 如果没有时区信息，假设是UTC时间
+                            start_time_utc = start_time.replace(tzinfo=pytz.UTC)
                     except ValueError:
                         try:
-                            # 如果ISO格式失败，尝试标准格式
+                            # 如果ISO格式失败，尝试标准格式（假设为UTC）
                             start_time = datetime.strptime(start_time_str, '%Y-%m-%d %H:%M:%S')
+                            start_time_utc = start_time.replace(tzinfo=pytz.UTC)
                         except ValueError:
                             print(f"⚠️ 无法解析时间格式: {start_time_str}")
                             continue
                     
-                    # 计算提醒时间
-                    remind_minutes = event['result'].get('minutes_before_remind', 15)
-                    remind_time = start_time - timedelta(minutes=remind_minutes)
+                    if start_time_utc is None:
+                        continue
                     
-                    # 检查是否到了提醒时间
-                    if current_time >= remind_time:
+                    # 计算提醒时间（UTC）
+                    remind_minutes = event['result'].get('minutes_before_remind', 15)
+                    remind_time_utc = start_time_utc - timedelta(minutes=remind_minutes)
+                    
+                    # 检查是否到了提醒时间（统一使用UTC比较）
+                    if current_time_utc >= remind_time_utc:
+                        # 为了日志显示，转换为中国时区
+                        china_tz = pytz.timezone('Asia/Shanghai')
+                        event_time_china = start_time_utc.astimezone(china_tz)
+                        current_time_china = current_time_utc.astimezone(china_tz)
+                        
                         print(f"🔔 发送提醒: {event.get('summary', '未知事件')}")
+                        print(f"   事件时间: {event_time_china.strftime('%Y-%m-%d %H:%M:%S')} (北京时间)")
+                        print(f"   当前时间: {current_time_china.strftime('%Y-%m-%d %H:%M:%S')} (北京时间)")
                         
                         webhook_type = CONFIG.get('webhook_type', 'generic')
                         if send_notification(event, event['result'], CONFIG['webhook_url'], webhook_type):
