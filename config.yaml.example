@@ -1,0 +1,17 @@
+model: gemini     # gemini or deepseek
+api_key: "your-api-key-here"
+
+caldav:
+  url: "https://caldav.icloud.com"  # iCloud CalDAV URL
+  username: "your-icloud@example.com"
+  password: "your-app-specific-password"  # 使用应用专用密码
+
+database: "./data/agent.db"
+webhook_url: "http://66.117.9.76:8080/message?token=YOUR_GOTIFY_TOKEN"  # Gotify webhook URL
+
+# 可选配置
+settings:
+  fetch_interval: 600  # 获取日程间隔（秒）
+  remind_check_interval: 60  # 检查提醒间隔（秒）
+  cleanup_days: 7  # 清理多少天前的旧记录
+  timezone: "Asia/Shanghai"  # 时区设置
