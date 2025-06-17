@@ -18,7 +18,7 @@ import urllib3
 urllib3.disable_warnings()
 
 from caldav_client.caldav_client import get_upcoming_events
-from ai.gemini_agent import analyze_event
+from ai.LLM_agent import analyze_event
 from memory.database import init_db, save_event_analysis, get_events_to_remind, mark_reminded, get_stats, cleanup_old_events
 from notifier.webhook import send_notification, send_test_notification
 from config import CONFIG
@@ -66,7 +66,7 @@ class CalendarAgent:
         print(f"🔄 [{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 开始获取日程...")
         
         try:
-            # 获取接下来24小时的事件（而不是1小时）
+            # 获取接下来24小时的事件
             events = get_upcoming_events(CONFIG['caldav'])
             
             if not events:

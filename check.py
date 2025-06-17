@@ -30,7 +30,7 @@ def check_files():
         'caldav_client/__init__.py',
         'caldav_client/caldav_client.py',
         'ai/__init__.py',
-        'ai/gemini_agent.py',
+        'ai/LLM_agent.py',
         'memory/__init__.py',
         'memory/database.py',
         'notifier/__init__.py',
