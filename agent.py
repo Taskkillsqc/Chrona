@@ -211,13 +211,37 @@ class CalendarAgent:
     
     def run(self):
         """主运行循环"""
-        print("🚀 Dummy Schedule Manager 启动")
+        print("🚀 Dummy Schedule Manager v2.0 启动")
         print(f"📊 配置信息:")
         print(f"  模型: {CONFIG.get('model', 'unknown')}")
         print(f"  数据库: {CONFIG.get('database', 'unknown')}")
         print(f"  CalDAV URL: {CONFIG.get('caldav', {}).get('url', 'unknown')}")
         print(f"  获取间隔: {INTERVAL}秒")
         print(f"  提醒检查间隔: {REMIND_CHECK_INTERVAL}秒")
+        
+        # 显示功能状态
+        print(f"\n🔧 功能状态:")
+        
+        # 心跳包功能状态
+        heartbeat_config = CONFIG.get('heartbeat', {})
+        if heartbeat_config.get('enabled', False) and heartbeat_config.get('url'):
+            print(f"💗 心跳包: 已启用 (间隔: {heartbeat_config.get('interval', 60)}秒)")
+            print(f"   目标: {heartbeat_config.get('url')}")
+        else:
+            print("💗 心跳包: 未启用")
+        
+        # API服务状态
+        api_config = CONFIG.get('api', {})
+        if api_config.get('enabled', False):
+            host = api_config.get('host', '0.0.0.0')
+            port = api_config.get('port', 8000)
+            print(f"🌐 API服务: 已启用")
+            print(f"   地址: http://{host}:{port}")
+            print(f"   文档: http://{host}:{port}/docs")
+        else:
+            print("🌐 API服务: 未启用")
+        
+        print(f"\n🔧 正在启动服务...")
         
         # 初始化数据库
         try:
@@ -227,17 +251,23 @@ class CalendarAgent:
             return
         
         # 启动心跳包发送器
-        self.heartbeat_sender.start()
+        if self.heartbeat_sender.start():
+            print("✅ 心跳包服务启动成功")
         
         # 启动API服务器
-        self.api_server.start()
+        if self.api_server.start():
+            print("✅ API服务启动成功")
         
         # 发送启动状态的心跳包
         self.heartbeat_sender.send_status_update("up", "Schedule Manager started successfully")
         
+        # 等待一下确保服务完全启动
+        import time
+        time.sleep(1)
+        
         # 发送测试通知（可选）
         if CONFIG.get('webhook_url') and CONFIG['webhook_url'] != "https://your.gitify.endpoint/webhook":
-            print("\n🧪 发送测试通知...")
+            print(f"\n🧪 发送测试通知...")
             webhook_type = CONFIG.get('webhook_type', 'generic')
             if send_test_notification(CONFIG['webhook_url'], webhook_type):
                 print("✅ 测试通知发送成功")
@@ -312,28 +342,6 @@ def main():
     if CONFIG['api_key'] == 'your-api-key-here':
         print("❌ 请在config.yaml中设置正确的API密钥")
         sys.exit(1)
-    
-    # 显示功能状态
-    print("\n🔧 功能状态:")
-    
-    # 心跳包功能状态
-    heartbeat_config = CONFIG.get('heartbeat', {})
-    if heartbeat_config.get('enabled', False) and heartbeat_config.get('url'):
-        print(f"💗 心跳包: 已启用 (间隔: {heartbeat_config.get('interval', 60)}秒)")
-        print(f"   目标: {heartbeat_config.get('url')}")
-    else:
-        print("💗 心跳包: 未启用")
-    
-    # API服务状态
-    api_config = CONFIG.get('api', {})
-    if api_config.get('enabled', False):
-        host = api_config.get('host', '0.0.0.0')
-        port = api_config.get('port', 8000)
-        print(f"🌐 API服务: 已启用")
-        print(f"   地址: http://{host}:{port}")
-        print(f"   文档: http://{host}:{port}/docs")
-    else:
-        print("🌐 API服务: 未启用")
     
     # 启动代理
     agent = CalendarAgent()

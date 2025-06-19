@@ -53,7 +53,7 @@ def init_db(path):
     )''')
     
     conn.commit()
-    print(f"数据库初始化完成: {path}")
+    print(f"✅ 数据库初始化完成: {path}")
 
 def save_event_analysis(event, result):
     """保存事件分析结果"""

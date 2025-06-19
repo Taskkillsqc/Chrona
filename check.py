@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Dummy Schedule Manager 项目完整性检查
+Dummy Schedule Manager v2.0 项目完整性检查
 验证项目是否已正确构建并可以使用
 """
 
@@ -552,7 +552,7 @@ def check_api_functionality():
 
 def main():
     """主检查函数"""
-    print("🔍 Dummy Schedule Manager 项目完整性检查")
+    print("🔍 Dummy Schedule Manager v2.0 项目完整性检查")
     print("=" * 50)
     
     checks = [

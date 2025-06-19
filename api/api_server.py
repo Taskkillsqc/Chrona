@@ -26,7 +26,7 @@ class APIServer:
         self.app = FastAPI(
             title="Dummy Schedule Manager API",
             description="智能日程管理系统API",
-            version="1.0.0"
+            version="2.0.0"
         )
         
         self.server = None
@@ -43,7 +43,7 @@ class APIServer:
             """根路径"""
             return {
                 "message": "Dummy Schedule Manager API",
-                "version": "1.0.0",
+                "version": "2.0.0",
                 "status": "running",
                 "timestamp": datetime.now().isoformat()
             }
