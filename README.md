@@ -1,6 +1,6 @@
 # Chrona
 
-Chrona 是一个基于 Gemini API（可切换为 DeepSeek API）的智能日程提醒助手。
+Chrona 是一个基于 LLM 的智能日程提醒助手。
 
 ## 🆕 v2.0 新功能亮点
 
@@ -19,7 +19,8 @@ Chrona 是一个基于 Gemini API（可切换为 DeepSeek API）的智能日程�
 - 📱 **智能通知**: 通过 Webhook 发送个性化提醒通知
 - 🐳 **容器化部署**: 支持 Docker 和 docker-compose 部署
 - 🔧 **灵活配置**: 支持多种 AI 模型和 CalDAV 服务
-- 💗 **心跳包监控**: 定期向 Uptime Kuma 等监控服务发送状态更新
+- � **多日历支持**: 自动识别和显示事件来源日历名称（如 iCloud 小日历）
+- �💗 **心跳包监控**: 定期向 Uptime Kuma 等监控服务发送状态更新
 - 🌐 **REST API**: 完整的 API 接口支持远程监控和控制
 - 📊 **实时状态**: 自动生成 API 文档，支持实时查看程序状态
 
@@ -514,24 +515,25 @@ curl -X POST http://localhost:8000/heartbeat/send
 ### Gotify 格式
 ```json
 {
-  "title": "📅 日程提醒: 会议标题",
-  "message": "⏰ 时间: 2024-01-01 14:00:00\n📝 描述: 会议描述\n⏱️ 建议提前: 15分钟",
+  "title": "📅 日程提醒: 项目评审会议",
+  "message": "⏰ 开始时间: 2025-06-19 14:00:00\n⏰ 结束时间: 2025-06-19 15:30:00\n⏱️ 持续时间: 1小时30分钟\n� 日历: 工作日历\n�📝 描述: 讨论Q2项目进展和下阶段计划\n🎯 任务: 参加项目评审会议\n⭐ 重要程度: 高\n⏱️ 建议提前: 15分钟\n💭 分析: 基于工作日历判断，这是重要的工作会议",
   "priority": 8,
   "extras": {
     "client::display": {
       "contentType": "text/markdown"
     },
     "event": {
-      "summary": "会议标题",
-      "description": "会议描述",
-      "start_time": "2024-01-01 14:00:00"
+      "summary": "项目评审会议",
+      "description": "讨论Q2项目进展和下阶段计划",
+      "start_time": "2025-06-19 14:00:00",
+      "calendar_name": "工作日历"
     },
     "analysis": {
-      "task": "参加团队会议",
+      "task": "参加项目评审会议",
       "important": true,
       "need_remind": true,
       "minutes_before_remind": 15,
-      "reason": "重要的团队会议需要提前准备"
+      "reason": "基于工作日历判断，这是重要的工作会议"
     }
   }
 }
@@ -634,6 +636,9 @@ Chrona/
 - `summary`: 事件标题
 - `description`: 事件描述
 - `start_time`: 开始时间
+- `end_time`: 结束时间
+- `duration_minutes`: 持续时间（分钟）
+- `calendar_name`: 日历名称
 - `result`: AI 分析结果（JSON）
 - `reminded`: 是否已提醒
 - `created_at`: 创建时间

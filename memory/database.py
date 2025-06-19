@@ -43,6 +43,11 @@ def init_db(path):
     except sqlite3.OperationalError:
         pass  # 字段已存在
     
+    try:
+        c.execute('ALTER TABLE events ADD COLUMN calendar_name TEXT')
+    except sqlite3.OperationalError:
+        pass  # 字段已存在
+    
     # 创建提醒记录表
     c.execute('''CREATE TABLE IF NOT EXISTS reminders (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -67,8 +72,8 @@ def save_event_analysis(event, result):
         # 使用REPLACE确保同一个事件不会重复插入
         c.execute("""
             INSERT OR REPLACE INTO events 
-            (uid, summary, description, start_time, end_time, duration_minutes, result, updated_at) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            (uid, summary, description, start_time, end_time, duration_minutes, calendar_name, result, updated_at) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             event.get('uid', ''),
             event.get('summary', ''),
@@ -76,6 +81,7 @@ def save_event_analysis(event, result):
             event.get('start', ''),
             event.get('end', ''),
             event.get('duration_minutes'),
+            event.get('calendar_name', ''),
             json.dumps(result, ensure_ascii=False),
             datetime.now().isoformat()
         ))
@@ -95,7 +101,7 @@ def get_events_to_remind():
     try:
         c = conn.cursor()
         c.execute("""
-            SELECT id, uid, summary, description, start_time, end_time, duration_minutes, result 
+            SELECT id, uid, summary, description, start_time, end_time, duration_minutes, calendar_name, result 
             FROM events 
             WHERE reminded = 0 
             AND json_extract(result, '$.need_remind') = 1
@@ -105,7 +111,7 @@ def get_events_to_remind():
         events = []
         for row in c.fetchall():
             try:
-                result = json.loads(row[7])
+                result = json.loads(row[8])
                 events.append({
                     'id': row[0],
                     'uid': row[1],
@@ -114,6 +120,7 @@ def get_events_to_remind():
                     'start_time': row[4],
                     'end_time': row[5],
                     'duration_minutes': row[6],
+                    'calendar_name': row[7],
                     'result': result
                 })
             except json.JSONDecodeError:
@@ -245,7 +252,7 @@ def get_recent_events(limit=10):
         c = conn.cursor()
         c.execute("""
             SELECT id, uid, summary, description, start_time, end_time, 
-                   duration_minutes, result, reminded, created_at, updated_at
+                   duration_minutes, calendar_name, result, reminded, created_at, updated_at
             FROM events 
             ORDER BY created_at DESC 
             LIMIT ?
@@ -261,10 +268,11 @@ def get_recent_events(limit=10):
                 'start_time': row[4],
                 'end_time': row[5],
                 'duration_minutes': row[6],
-                'result': json.loads(row[7]) if row[7] else {},
-                'reminded': row[8],
-                'created_at': row[9],
-                'updated_at': row[10]
+                'calendar_name': row[7],
+                'result': json.loads(row[8]) if row[8] else {},
+                'reminded': row[9],
+                'created_at': row[10],
+                'updated_at': row[11]
             }
             events.append(event)
         

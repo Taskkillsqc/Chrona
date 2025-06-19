@@ -2,7 +2,7 @@ import requests
 import json
 import time
 
-def analyze_event(summary, description, config, start_time=None, end_time=None, duration_minutes=None, current_time=None):
+def analyze_event(summary, description, config, start_time=None, end_time=None, duration_minutes=None, current_time=None, calendar_name=None):
     """使用AI分析日程事件的重要性和提醒需求"""
     from datetime import datetime
     import pytz
@@ -26,6 +26,11 @@ def analyze_event(summary, description, config, start_time=None, end_time=None, 
         else:
             time_info += f"持续时间: {minutes}分钟\n"
     
+    # 构建日历信息文本
+    calendar_info = ""
+    if calendar_name:
+        calendar_info = f"日历来源: {calendar_name}\n"
+
     prompt = f"""
 你是一个智能日程助手。请分析如下日程并输出以下字段：
 - task: 事件任务（简化后的任务描述）
@@ -42,8 +47,17 @@ def analyze_event(summary, description, config, start_time=None, end_time=None, 
 5. 考虑事件时长：长时间事件（>=2小时）可能需要更早提醒
 6. 考虑当前时间与事件开始时间的距离来调整提醒策略
 
+基于日历名称的智能判断：
+- "工作"、"办公"、"会议"等相关日历：通常为工作事务，重要性较高，建议提醒
+- "个人"、"私人"、"生活"等相关日历：根据具体内容判断重要性
+- "生日"、"纪念日"等相关日历：重要的个人事件，建议提醒
+- "假期"、"休息"、"娱乐"等相关日历：通常不需要紧急提醒
+- "健康"、"医疗"、"体检"等相关日历：健康相关事务，重要性高
+- "学习"、"课程"、"培训"等相关日历：教育相关，建议提醒
+- 如果日历名称包含具体项目名、客户名：通常为重要工作事务
+
 当前时间: {current_time}
-{time_info}
+{time_info}{calendar_info}
 标题: {summary}
 描述: {description}
 

@@ -92,7 +92,8 @@ class CalendarAgent:
             
             print(f"📅 发现 {len(events)} 个即将到来的事件")                # 分析每个事件
             for i, event in enumerate(events, 1):
-                print(f"  🔍 分析事件 {i}/{len(events)}: {event.get('summary', '无标题')}")
+                calendar_info = f" (来自: {event.get('calendar_name', '未知日历')})" if event.get('calendar_name') else ""
+                print(f"  🔍 分析事件 {i}/{len(events)}: {event.get('summary', '无标题')}{calendar_info}")
                 print(f"      时间: {event.get('start', '未知')}")
                 if event.get('duration_minutes'):
                     print(f"      时长: {event.get('duration_minutes')}分钟")
@@ -109,7 +110,8 @@ class CalendarAgent:
                     start_time=event.get('start', ''),
                     end_time=event.get('end', ''),
                     duration_minutes=event.get('duration_minutes'),
-                    current_time=current_time
+                    current_time=current_time,
+                    calendar_name=event.get('calendar_name', '')
                 )
                 
                 if 'error' in result:

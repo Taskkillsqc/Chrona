@@ -39,6 +39,7 @@ def send_gotify_notification(event, result, webhook_url):
                     "summary": event.get('summary', ''),
                     "description": event.get('description', ''),
                     "start_time": event.get('start_time', ''),
+                    "calendar_name": event.get('calendar_name', ''),
                     "uid": event.get('uid', '')
                 },
                 "analysis": result
@@ -125,6 +126,10 @@ def format_notification_body(event, result):
             lines.append(f"⏱️ 持续时间: {hours}小时{minutes}分钟")
         else:
             lines.append(f"⏱️ 持续时间: {minutes}分钟")
+    
+    # 日历信息
+    if event.get('calendar_name'):
+        lines.append(f"📅 日历: {event['calendar_name']}")
     
     if event.get('description'):
         lines.append(f"📝 描述: {event['description']}")

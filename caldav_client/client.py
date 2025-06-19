@@ -61,6 +61,15 @@ class CalDAVClient:
             
             for calendar in calendars:
                 try:
+                    # 获取日历名称
+                    calendar_name = "未知日历"
+                    try:
+                        calendar_name = str(calendar.name) if hasattr(calendar, 'name') and calendar.name else calendar.canonical_url.split('/')[-2] if hasattr(calendar, 'canonical_url') else "未知日历"
+                    except:
+                        calendar_name = "未知日历"
+                    
+                    self.logger.info(f"正在处理日历: {calendar_name}")
+                    
                     results = calendar.date_search(start_time, end_time)
                     for event in results:
                         v = event.vobject_instance.vevent
@@ -125,6 +134,7 @@ class CalDAVClient:
                             'end': str(event_end) if event_end else '',
                             'duration_minutes': duration_minutes,
                             'uid': str(v.uid.value) if hasattr(v, 'uid') else '',
+                            'calendar_name': calendar_name,  # 添加日历名称信息
                         })
                 except Exception as e:
                     self.logger.warning(f"获取日历 {calendar} 事件时出错: {e}")
