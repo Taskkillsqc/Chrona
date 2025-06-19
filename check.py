@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Dummy Schedule Manager v2.0 项目完整性检查
+Chrona v2.0 项目完整性检查
 验证项目是否已正确构建并可以使用
 """
 
@@ -279,7 +279,7 @@ def check_webhook_push():
 def check_gotify_push_specific(webhook_url, verification_code):
     """检查Gotify格式推送"""
     message_data = {
-        "title": "🔍 Dummy Schedule Manager 验证",
+        "title": "🔍 Chrona 验证",
         "message": f"验证码: {verification_code}\n\n请在终端中输入此验证码以确认Gotify推送功能正常工作。",
         "priority": 5,
         "extras": {
@@ -295,13 +295,13 @@ def check_gotify_push_specific(webhook_url, verification_code):
 def check_slack_push_specific(webhook_url, verification_code):
     """检查Slack格式推送"""
     message_data = {
-        "text": "🔍 Dummy Schedule Manager 验证",
+        "text": "🔍 Chrona 验证",
         "blocks": [
             {
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": f"*🔍 Dummy Schedule Manager 验证*\n\n验证码: `{verification_code}`\n\n请在终端中输入此验证码以确认Slack推送功能正常工作。"
+                    "text": f"*🔍 Chrona 验证*\n\n验证码: `{verification_code}`\n\n请在终端中输入此验证码以确认Slack推送功能正常工作。"
                 }
             }
         ]
@@ -315,7 +315,7 @@ def check_generic_push_specific(webhook_url, verification_code):
     from datetime import datetime
     
     message_data = {
-        "title": "🔍 Dummy Schedule Manager 验证",
+        "title": "🔍 Chrona 验证",
         "body": f"验证码: {verification_code}\n\n请在终端中输入此验证码以确认Webhook推送功能正常工作。",
         "timestamp": datetime.now().isoformat()
     }
@@ -704,7 +704,7 @@ def simulate_api_service():
 
 def main():
     """主检查函数"""
-    print("🔍 Dummy Schedule Manager v2.0 项目完整性检查")
+    print("🔍 Chrona v2.0 项目完整性检查")
     print("=" * 50)
     
     checks = [

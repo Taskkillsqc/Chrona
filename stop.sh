@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# Dummy Schedule Manager 停止脚本
+# Chrona 停止脚本
 
-echo "🛑 正在停止 Dummy Schedule Manager..."
+echo "🛑 正在停止 Chrona..."
 
 # Docker 环境停止
 if [ -f "docker-compose.yml" ]; then
@@ -28,9 +28,9 @@ if [ -n "$PIDS" ]; then
         kill -KILL $REMAINING
     fi
     
-    echo "✅ Dummy Schedule Manager 已停止"
+    echo "✅ Chrona 已停止"
 else
-    echo "ℹ️  未发现运行中的 Dummy Schedule Manager 进程"
+    echo "ℹ️  未发现运行中的 Chrona 进程"
 fi
 
 echo "👋 停止完成"

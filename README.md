@@ -1,6 +1,6 @@
-# Dummy Schedule Manager
+# Chrona
 
-Dummy Schedule Manager 是一个基于 Gemini API（可切换为 DeepSeek API）的智能日程提醒助手。
+Chrona 是一个基于 Gemini API（可切换为 DeepSeek API）的智能日程提醒助手。
 
 ## 🆕 v2.0 新功能亮点
 
@@ -37,8 +37,8 @@ Dummy Schedule Manager 是一个基于 Gemini API（可切换为 DeepSeek API）
 
 1. **克隆项目**
    ```bash
-   git clone https://github.com/Taskkillsqc/dummy-schedule-manager.git
-   cd dummy-schedule-manager
+   git clone https://github.com/Taskkillsqc/Chrona.git
+   cd Chrona
    ```
 
 2. **安装依赖**
@@ -123,14 +123,14 @@ Dummy Schedule Manager 是一个基于 Gemini API（可切换为 DeepSeek API）
 2. **使用 Docker 直接运行**
    ```bash
    # 构建镜像
-   docker build -t dummy-schedule-manager .
+   docker build -t Chrona .
    
    # 运行容器
    docker run -d \
      --name dummy_schedule_manager \
      -v $(pwd)/data:/app/data \
      -v $(pwd)/config.yaml:/app/config.yaml:ro \
-     dummy-schedule-manager
+     Chrona
    ```
 
 ## 🚀 新功能快速入门
@@ -142,7 +142,7 @@ Dummy Schedule Manager 是一个基于 Gemini API（可切换为 DeepSeek API）
    - 登录您的 Uptime Kuma 面板
    - 点击 "Add New Monitor"
    - 选择 "Push" 类型
-   - 填写监控名称：`Dummy Schedule Manager`
+   - 填写监控名称：`Chrona`
    - 复制生成的推送 URL
 
 2. **配置 config.yaml**
@@ -439,10 +439,10 @@ docker-compose up -d
 
 2. **创建应用程序**
    - 在 "Apps" 页面点击 "Create App"
-   - 输入应用名称：`Dummy Schedule Manager`
+   - 输入应用名称：`Chrona`
    - 保存并复制生成的 Token
 
-3. **配置 Dummy Schedule Manager**
+3. **配置 Chrona**
    ```yaml
    webhook_url: "http://your-gotify-server:8080/message?token=YOUR_TOKEN"
    webhook_type: "gotify"
@@ -455,7 +455,7 @@ docker-compose up -d
 
 ### Gotify 优先级说明
 
-Dummy Schedule Manager 会根据事件重要性自动设置通知优先级：
+Chrona 会根据事件重要性自动设置通知优先级：
 
 | 优先级 | 说明 | 使用场景 |
 |--------|------|----------|
@@ -590,7 +590,7 @@ curl -X POST http://localhost:8000/heartbeat/send
 ## 📁 项目结构
 
 ```
-dummy-schedule-manager/
+Chrona/
 ├── agent.py                 # 主应用程序入口
 ├── config.py               # 配置加载器
 ├── config.yaml.example     # 配置文件模板
@@ -651,7 +651,7 @@ dummy-schedule-manager/
 ### 查看日志
 ```bash
 # Docker 环境
-docker-compose logs -f dummy-schedule-manager
+docker-compose logs -f Chrona
 
 # 本地环境
 python agent.py
@@ -866,4 +866,4 @@ MIT License
 
 ---
 
-**🎉 Dummy Schedule Manager v2.0 - 让您的日程管理更智能、更可靠！**
+**🎉 Chrona v2.0 - 让您的日程管理更智能、更可靠！**

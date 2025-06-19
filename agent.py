@@ -211,7 +211,7 @@ class CalendarAgent:
     
     def run(self):
         """主运行循环"""
-        print("🚀 Dummy Schedule Manager v2.0 启动")
+        print("🚀 Chrona v2.0 启动")
         print(f"📊 配置信息:")
         print(f"  模型: {CONFIG.get('model', 'unknown')}")
         print(f"  数据库: {CONFIG.get('database', 'unknown')}")
@@ -325,7 +325,7 @@ class CalendarAgent:
         self.heartbeat_sender.stop()
         self.api_server.stop()
         
-        print("\n👋 Dummy Schedule Manager 已停止")
+        print("\n👋 Chrona 已停止")
 
 def main():
     """入口函数"""

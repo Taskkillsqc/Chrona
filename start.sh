@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# Dummy Schedule Manager 启动脚本
+# Chrona 启动脚本
 
 set -e
 
-echo "🚀 Dummy Schedule Manager 启动脚本"
+echo "🚀 Chrona 启动脚本"
 echo "================================"
 
 # 检查Python环境
@@ -99,7 +99,7 @@ if [ $? -ne 0 ]; then
 fi
 
 echo ""
-echo "🎯 准备启动 Dummy Schedule Manager..."
+echo "🎯 准备启动 Chrona..."
 echo "📊 当前配置："
 python -c "
 import yaml

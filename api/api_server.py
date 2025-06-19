@@ -24,7 +24,7 @@ class APIServer:
         self.app_config = config
         
         self.app = FastAPI(
-            title="Dummy Schedule Manager API",
+            title="Chrona API",
             description="智能日程管理系统API",
             version="2.0.0"
         )
@@ -42,7 +42,7 @@ class APIServer:
         async def root():
             """根路径"""
             return {
-                "message": "Dummy Schedule Manager API",
+                "message": "Chrona API",
                 "version": "2.0.0",
                 "status": "running",
                 "timestamp": datetime.now().isoformat()
