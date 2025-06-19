@@ -120,7 +120,13 @@ def check_configuration():
         
         # 检查基础必需字段
         for key in required_keys:
-            if key not in config or not config[key]:
+            if key == 'caldav':
+                # 特殊处理 CalDAV 配置，支持多提供商格式
+                if not check_caldav_config(config):
+                    missing_keys.append(key)
+                else:
+                    print(f"  ✅ {key}")
+            elif key not in config or not config[key]:
                 missing_keys.append(key)
             else:
                 print(f"  ✅ {key}")
@@ -862,6 +868,65 @@ def send_custom_verification_and_check(url, payload, headers, method, timeout, v
         return False
     except Exception as e:
         print(f"❌ 发送自定义webhook请求失败: {e}")
+        return False
+
+def check_caldav_config(config):
+    """检查 CalDAV 配置，支持单个和多个提供商格式"""
+    caldav_config = config.get('caldav')
+    if not caldav_config:
+        print(f"  ❌ caldav 配置缺失")
+        return False
+    
+    # 检查是否是列表格式（简化配置）
+    if isinstance(caldav_config, list):
+        if not caldav_config:
+            print(f"  ❌ caldav 提供商列表为空")
+            return False
+        
+        valid_providers = 0
+        for i, provider in enumerate(caldav_config):
+            name = provider.get('name', f'提供商{i+1}')
+            if provider.get('url') and provider.get('username') and provider.get('password'):
+                print(f"    ✅ {name}")
+                valid_providers += 1
+            else:
+                print(f"    ❌ {name} (配置不完整)")
+                return False
+        
+        print(f"  ✅ caldav (多提供商: {valid_providers} 个)")
+        return True
+    
+    # 检查是否是字典格式
+    elif isinstance(caldav_config, dict):
+        # 检查新的多提供商格式
+        if 'providers' in caldav_config:
+            providers = caldav_config['providers']
+            if not providers:
+                print(f"  ❌ caldav 提供商配置为空")
+                return False
+            
+            valid_providers = 0
+            for name, provider_config in providers.items():
+                if provider_config.get('url') and provider_config.get('username') and provider_config.get('password'):
+                    print(f"    ✅ {name}")
+                    valid_providers += 1
+                else:
+                    print(f"    ❌ {name} (配置不完整)")
+                    return False
+            
+            print(f"  ✅ caldav (多提供商: {valid_providers} 个)")
+            return True
+        
+        # 检查传统单个提供商格式
+        elif caldav_config.get('url') and caldav_config.get('username') and caldav_config.get('password'):
+            print(f"  ✅ caldav (单提供商)")
+            return True
+        else:
+            print(f"  ❌ caldav 单提供商配置不完整")
+            return False
+    
+    else:
+        print(f"  ❌ caldav 配置格式无效")
         return False
 
 def main():

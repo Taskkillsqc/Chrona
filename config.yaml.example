@@ -38,10 +38,49 @@ model: gemini     # 如果没有llm配置，会使用这个
 api_key: "your-api-key-here"  # 如果没有llm配置，会使用这个
 
 # CalDAV 服务配置
+# 支持单个提供商（向后兼容）或多个提供商配置
+
+# 方式一：传统单个提供商配置（向后兼容）
 caldav:
   url: "https://caldav.icloud.com"  # CalDAV 服务器地址
   username: "your-email@example.com"  # 您的邮箱地址
   password: "your-app-specific-password"  # 应用专用密码（推荐）
+
+# 方式二：多提供商配置（推荐，如果您有多个日历服务）
+# 注释掉上面的单个配置，使用下面的多提供商配置
+# caldav:
+#   providers:
+#     icloud:  # iCloud 日历
+#       url: "https://caldav.icloud.com"
+#       username: "your-icloud@icloud.com"
+#       password: "your-icloud-app-password"
+#     
+#     google:  # Google Calendar
+#       url: "https://apidata.googleusercontent.com/caldav/v2/your-email@gmail.com/events"
+#       username: "your-email@gmail.com"
+#       password: "your-google-app-password"
+#     
+#     outlook:  # Outlook/Exchange
+#       url: "https://outlook.live.com/owa/"
+#       username: "your-email@outlook.com"  
+#       password: "your-outlook-password"
+#     
+#     custom:  # 自定义 CalDAV 服务
+#       url: "https://your-caldav-server.com"
+#       username: "your-username"
+#       password: "your-password"
+
+# 方式三：简化的列表配置格式
+# caldav:
+#   - name: "iCloud"
+#     url: "https://caldav.icloud.com"
+#     username: "your-icloud@icloud.com"
+#     password: "your-icloud-app-password"
+#   
+#   - name: "Google Calendar"
+#     url: "https://apidata.googleusercontent.com/caldav/v2/your-email@gmail.com/events"
+#     username: "your-email@gmail.com"
+#     password: "your-google-app-password"
 
 # 数据存储配置
 database: "./data/agent.db"  # SQLite 数据库文件路径

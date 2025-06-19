@@ -23,13 +23,14 @@ Chrona 是一个基于 LLM 的智能日程提醒助手。
 ## ✨ 功能特性
 
 - 🔄 **自动同步**: 每 10 分钟通过 CalDAV 获取接下来 1 小时的日程
+- 🗂️ **多 CalDAV 支持**: 同时支持多个日历提供商（iCloud、Google、Outlook 等）
 - 🤖 **AI 分析**: 使用 Gemini/DeepSeek API 智能分析日程重要性和提醒需求
 - 💾 **数据存储**: 本地 SQLite 数据库存储分析结果
 - 📱 **智能通知**: 通过 Webhook 发送个性化提醒通知，支持 Gotify、Slack、通用和完全自定义格式
 - 🐳 **容器化部署**: 支持 Docker 和 docker-compose 部署
 - 🔧 **灵活配置**: 支持多种 AI 模型和 CalDAV 服务
 - 🗂️ **多日历支持**: 自动识别和显示事件来源日历名称（如 iCloud 小日历）
-- �💗 **心跳包监控**: 定期向 Uptime Kuma 等监控服务发送状态更新
+- 💗 **心跳包监控**: 定期向 Uptime Kuma 等监控服务发送状态更新
 - 🌐 **REST API**: 完整的 API 接口支持远程监控和控制
 - 📊 **实时状态**: 自动生成 API 文档，支持实时查看程序状态
 
@@ -320,19 +321,104 @@ python check.py
 
 ### CalDAV 配置
 
+Chrona 支持单个或多个 CalDAV 提供商，让您可以从不同的日历服务获取日程。
+
+#### 单个提供商配置（向后兼容）
+
 | 配置项 | 说明 | 示例 |
 |--------|------|------|
-| `url` | CalDAV 服务器地址 | `https://caldav.icloud.com` |
-| `username` | 用户名/邮箱 | `user@example.com` |
-| `password` | 密码（建议使用应用专用密码） | `app-specific-password` |
+| `caldav.url` | CalDAV 服务器地址 | `https://caldav.icloud.com` |
+| `caldav.username` | 用户名/邮箱 | `user@example.com` |
+| `caldav.password` | 密码（建议使用应用专用密码） | `app-specific-password` |
+
+```yaml
+caldav:
+  url: "https://caldav.icloud.com"
+  username: "your-email@icloud.com"
+  password: "your-app-specific-password"
+```
+
+#### 多提供商配置 🆕
+
+**方式一：命名提供商格式（推荐）**
+```yaml
+caldav:
+  providers:
+    icloud:
+      url: "https://caldav.icloud.com"
+      username: "your-icloud@icloud.com"
+      password: "your-icloud-app-password"
+    
+    google:
+      url: "https://apidata.googleusercontent.com/caldav/v2/your-email@gmail.com/events"
+      username: "your-email@gmail.com"
+      password: "your-google-app-password"
+    
+    outlook:
+      url: "https://outlook.live.com/owa/"
+      username: "your-email@outlook.com"
+      password: "your-outlook-password"
+```
+
+**方式二：列表格式**
+```yaml
+caldav:
+  - name: "iCloud"
+    url: "https://caldav.icloud.com"
+    username: "your-icloud@icloud.com"
+    password: "your-icloud-app-password"
+  
+  - name: "Google Calendar"
+    url: "https://apidata.googleusercontent.com/caldav/v2/your-email@gmail.com/events"
+    username: "your-email@gmail.com"
+    password: "your-google-app-password"
+```
+
+**多提供商特性：**
+- 🔄 **并发获取**: 同时从多个服务获取事件，提高效率
+- 🏷️ **来源标识**: 自动标记事件来源，如 "工作日历 (iCloud)"
+- ⚡ **容错处理**: 单个服务故障不影响其他服务
+- 📊 **统一管理**: 所有日历事件在一个界面中统一显示
 
 ### 支持的 CalDAV 服务
 
-- **iCloud**: `https://caldav.icloud.com`
-- **Google Calendar**: `https://apidata.googleusercontent.com/caldav/v2/`
-- **Outlook**: `https://outlook.live.com/owa/`
-- **Yahoo**: `https://caldav.calendar.yahoo.com`
-- 其他支持 CalDAV 的服务
+#### 主流服务配置
+
+| 服务 | URL | 说明 |
+|------|-----|------|
+| **iCloud** | `https://caldav.icloud.com` | Apple 的日历服务 |
+| **Google Calendar** | `https://apidata.googleusercontent.com/caldav/v2/` | Google 的日历服务 |
+| **Outlook/Exchange** | `https://outlook.live.com/owa/` | Microsoft 的邮箱和日历服务 |
+| **Yahoo** | `https://caldav.calendar.yahoo.com` | Yahoo 的日历服务 |
+
+#### 获取配置信息
+
+**iCloud:**
+1. 访问 [appleid.apple.com](https://appleid.apple.com/)
+2. 登录并生成应用专用密码
+3. 使用该密码作为 CalDAV 密码
+
+**Google Calendar:**
+1. 访问 [Google Calendar 设置](https://calendar.google.com/calendar/u/0/r/settings/export)
+2. 获取您的日历 ID
+3. 使用应用密码进行身份验证
+
+**Outlook:**
+1. 启用 IMAP/CalDAV 访问
+2. 使用您的 Outlook 账户凭据
+
+#### 自定义 CalDAV 服务
+
+Chrona 支持任何标准的 CalDAV 服务：
+
+```yaml
+caldav:
+  providers:
+    custom_server:
+      url: "https://your-caldav-server.com"
+      username: "your-username"
+      password: "your-password"
+```
 
 ### Webhook 通知配置
 
@@ -1095,4 +1181,4 @@ MIT License
 
 ---
 
-**🎉 Chrona v2.0 - 让您的日程管理更智能、更可靠！**
+**🎉 Chrona v3.0 - 让您的日程管理更智能、更可靠！**
