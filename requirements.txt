@@ -6,3 +6,4 @@ pytz==2025.2
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
 pydantic==2.5.0
+llama-cpp-python==0.2.90

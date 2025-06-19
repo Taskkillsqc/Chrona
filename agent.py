@@ -28,6 +28,7 @@ from config import CONFIG
 # 配置常量
 INTERVAL = 600  # 每10分钟运行一次
 REMIND_CHECK_INTERVAL = 60  # 每1分钟检查一次是否需要发送提醒
+CLEANUP_INTERVAL = 3600  # 每1小时清理一次过期事件
 
 class CalendarAgent:
     def __init__(self):
@@ -37,6 +38,7 @@ class CalendarAgent:
         self.running = True
         self.last_fetch_time = None
         self.last_remind_check = None
+        self.last_cleanup_time = None  # 新增清理时间跟踪
         
         # 初始化心跳包发送器
         self.heartbeat_sender = HeartbeatSender(CONFIG)
@@ -237,6 +239,7 @@ class CalendarAgent:
         print(f"  📅 CalDAV URL: {CONFIG.get('caldav', {}).get('url', 'unknown')}")
         print(f"  ⏱️ 获取间隔: {INTERVAL}秒")
         print(f"  🔔 提醒检查间隔: {REMIND_CHECK_INTERVAL}秒")
+        print(f"  🗑️ 数据清理间隔: {CLEANUP_INTERVAL}秒")
         
         # 显示功能状态
         print(f"\n🔧 功能状态:")
@@ -296,7 +299,10 @@ class CalendarAgent:
         print(f"\n⏰ 开始监控日程...")
         
         # 立即执行一次，先清理过期事件，再检查提醒
+        print("🗑️ 启动时清理过期数据...")
         cleanup_old_events(days=7)  # 首先清理过期事件
+        self.last_cleanup_time = datetime.now()  # 记录清理时间
+        
         self.fetch_and_analyze_events()
         self.check_and_send_reminders()
         self.print_stats()
@@ -318,9 +324,12 @@ class CalendarAgent:
                     (current_time - self.last_remind_check).total_seconds() >= REMIND_CHECK_INTERVAL):
                     self.check_and_send_reminders()
                 
-                # 每小时清理一次旧记录
-                if current_time.minute == 0 and current_time.second < 30:
+                # 定期清理过期事件
+                if (not self.last_cleanup_time or 
+                    (current_time - self.last_cleanup_time).total_seconds() >= CLEANUP_INTERVAL):
+                    print(f"🗑️ [{current_time.strftime('%H:%M:%S')}] 执行数据库清理...")
                     cleanup_old_events(days=7)
+                    self.last_cleanup_time = current_time
                 
                 # 每小时打印一次统计信息
                 if current_time.minute == 0 and current_time.second < 30:
@@ -354,16 +363,44 @@ def main():
         sys.exit(1)
     
     # 检查必要的配置
-    required_fields = ['api_key', 'caldav', 'database', 'webhook_url']
+    required_fields = ['caldav', 'database', 'webhook_url']
     for field in required_fields:
         if field not in CONFIG or not CONFIG[field]:
             print(f"❌ 配置文件中缺少必要字段: {field}")
             sys.exit(1)
     
-    # 检查API密钥
-    if CONFIG['api_key'] == 'your-api-key-here':
-        print("❌ 请在config.yaml中设置正确的API密钥")
-        sys.exit(1)
+    # 检查 LLM 配置（支持新的 V3 格式）
+    llm_config = CONFIG.get('llm', {})
+    if llm_config:
+        # 新格式：检查是否有有效的 LLM 配置
+        if llm_config.get('local', {}).get('enabled', False):
+            # 本地模型配置
+            local_config = llm_config['local']
+            if not local_config.get('model_path'):
+                print("❌ 本地 LLM 配置缺少 model_path")
+                sys.exit(1)
+        elif llm_config.get('custom', {}).get('enabled', False):
+            # 自定义配置
+            custom_config = llm_config['custom']
+            if not custom_config.get('url') or not custom_config.get('model'):
+                print("❌ 自定义 LLM 配置缺少 url 或 model")
+                sys.exit(1)
+        else:
+            # 预设提供商配置
+            if not llm_config.get('api_key'):
+                print("❌ LLM 配置缺少 api_key")
+                sys.exit(1)
+            if llm_config.get('api_key') in ['your-api-key-here', '']:
+                print("❌ 请在config.yaml中设置正确的 LLM API密钥")
+                sys.exit(1)
+    else:
+        # 兼容旧格式
+        if 'api_key' not in CONFIG or not CONFIG['api_key']:
+            print("❌ 配置文件中缺少必要字段: api_key 或 llm 配置")
+            sys.exit(1)
+        if CONFIG['api_key'] == 'your-api-key-here':
+            print("❌ 请在config.yaml中设置正确的API密钥")
+            sys.exit(1)
     
     # 启动代理
     agent = CalendarAgent()

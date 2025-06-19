@@ -4,7 +4,8 @@ Chrona 是一个基于 LLM 的智能日程提醒助手。
 
 ## 🆕 v3.0 新功能亮点
 
-- 🤖 **LLM 多提供商支持**: 支持 Gemini、DeepSeek、OpenAI 和自定义 API 端点
+- 🤖 **LLM 多提供商支持**: 支持 Gemini、DeepSeek、OpenAI、自定义 API 端点和本地模型
+- 🏠 **本地模型支持**: 支持 GGUF 格式的本地 LLM 模型（Qwen、LLaMA、Gemma 等）⚠️ 实验性功能
 - 🔧 **灵活的模型配置**: 用户可自定义 API URL、模型名称和请求参数
 - ⚡ **统一的 LLM 接口**: 通过统一接口调用不同的 LLM 提供商
 - 🎛️ **高级参数控制**: 支持温度、最大令牌数、top-p 等参数调整
@@ -24,7 +25,8 @@ Chrona 是一个基于 LLM 的智能日程提醒助手。
 
 - 🔄 **自动同步**: 每 10 分钟通过 CalDAV 获取接下来 1 小时的日程
 - 🗂️ **多 CalDAV 支持**: 同时支持多个日历提供商（iCloud、Google、Outlook 等）
-- 🤖 **AI 分析**: 使用 Gemini/DeepSeek API 智能分析日程重要性和提醒需求
+- 🤖 **AI 分析**: 使用在线 API 或本地模型智能分析日程重要性和提醒需求
+- 🏠 **本地 LLM 支持**: 支持 GGUF 格式模型，完全离线运行，保护隐私（⚠️ 实验性功能，格式错误率较高）
 - 💾 **数据存储**: 本地 SQLite 数据库存储分析结果
 - 📱 **智能通知**: 通过 Webhook 发送个性化提醒通知，支持 Gotify、Slack、通用和完全自定义格式
 - 🐳 **容器化部署**: 支持 Docker 和 docker-compose 部署
@@ -64,9 +66,16 @@ Chrona 是一个基于 LLM 的智能日程提醒助手。
    cp config.yaml.example config.yaml
    ```
    
+   **⚠️ LLM 选择建议**：
+   - 🌟 **推荐**：使用云端 LLM（Gemini/DeepSeek）获得最佳稳定性和准确性
+   - ⚡ **实验性**：本地 LLM 虽然免费但可能产生格式错误，影响提醒功能
+   
    编辑 `config.yaml`：
    ```yaml
    # LLM 配置 (V3.0 新格式)
+   # 选择一种配置方式：
+   
+   # 在线 API 配置（推荐）
    llm:
      provider: "gemini"  # gemini, deepseek, openai, custom
      api_key: "your-api-key-here"
@@ -74,11 +83,39 @@ Chrona 是一个基于 LLM 的智能日程提醒助手。
        temperature: 0.7
        max_tokens: 1000
    
+   # 或者本地 LLM 配置 🆕
+   # ⚠️ 重要提醒：本地模型可能生成不规范的JSON格式，导致部分事件无法正确分析和提醒
+   # 建议：生产环境优先使用云端LLM（Gemini/DeepSeek等）以确保稳定性
+   # llm:
+   #   provider: "local"
+   #   local:
+   #     enabled: true
+   #     model_path: "./models/qwen2.5-1.5b-instruct-q4_k_m.gguf"
+   #     n_ctx: 4096
+   #     n_threads: 4
+   #   parameters:
+   #     temperature: 0.3  # 降低温度提高输出稳定性
+   #     max_tokens: 500   # 限制输出长度减少格式错误
+   #     top_p: 0.8        # 减少随机性
+   
    # CalDAV 配置
+   # 单个供应商（向后兼容）
    caldav:
      url: "https://caldav.icloud.com"
      username: "your-icloud@example.com"
      password: "your-app-specific-password"
+   
+   # 或者多供应商配置 🆕
+   # caldav:
+   #   providers:
+   #     icloud:
+   #       url: "https://caldav.icloud.com"
+   #       username: "your-icloud@icloud.com"
+   #       password: "your-icloud-app-password"
+   #     google:
+   #       url: "https://apidata.googleusercontent.com/caldav/v2/your-email@gmail.com/events"
+   #       username: "your-email@gmail.com"
+   #       password: "your-google-app-password"
    
    # 数据库配置
    database: "./data/agent.db"
@@ -127,6 +164,65 @@ Chrona 是一个基于 LLM 的智能日程提醒助手。
    - ✅ Webhook 推送功能是否正常（支持 Gotify、Slack、通用、自定义格式）
    - ✅ 心跳包功能是否可用
    - ✅ API 功能是否正常
+
+### 🏠 本地 LLM 快速入门 🆕
+
+**⚠️ 重要提醒**: 本地模型为实验性功能，建议仅用于测试环境。
+
+**已知限制**：
+- 📉 约 30-50% 概率生成错误 JSON 格式
+- ⚠️ 可能导致事件分析失败和提醒缺失
+- 🎯 生产环境推荐使用云端 LLM（Gemini/DeepSeek）
+
+如果您仍希望使用本地模型实现完全离线运行，可以按以下步骤快速配置：
+
+1. **自动下载和配置本地模型（推荐）**
+   ```bash
+   # 运行自动配置脚本
+   python download_model.py
+   ```
+   
+   这将自动：
+   - 📦 下载推荐的 GGUF 模型（约 1GB）
+   - ⚙️ 生成本地 LLM 配置文件
+   - 🧪 测试模型加载和推理
+   - 📊 显示性能基准
+
+2. **应用本地配置**
+   ```bash
+   # 复制生成的本地配置
+   cp config_local_llm.yaml config.yaml
+   
+   # 或者手动编辑现有配置文件
+   nano config.yaml
+   ```
+
+3. **验证本地模型**
+   ```bash
+   # 检查本地 LLM 配置
+   python check.py
+   ```
+
+4. **启动程序**
+   ```bash
+   python agent.py
+   ```
+
+**本地 LLM 优势：**
+- 🔒 **完全离线**：无需网络连接或 API 调用
+- 💰 **无额外成本**：避免 API 调用费用
+- 🚀 **响应快速**：本地推理，无网络延迟
+- 🛡️ **隐私保护**：数据不离开本地设备
+
+**本地 LLM 风险：**
+- ⚠️ **格式错误**：JSON 解析失败率较高
+- 📉 **准确性下降**：事件分析质量可能不如云端模型
+- 🔧 **维护成本**：需要更多手动调优和监控
+
+**推荐配置：**
+- **轻量用户**: Qwen2.5-1.5B (1GB, 2-3GB 内存)
+- **平衡用户**: Qwen2.5-3B (2GB, 4-5GB 内存)  
+- **性能用户**: Qwen2.5-7B (4GB, 6-8GB 内存)
 
 ### Docker 部署
 
@@ -677,6 +773,130 @@ llm:
     max_tokens: 1000
 ```
 
+#### 本地 LLM 模型（GGUF）🆕
+
+Chrona 现在支持本地 GGUF 格式的 LLM 模型，可完全离线运行，保护隐私并降低成本。
+
+**🔧 环境要求：**
+- 支持 GGUF 格式的本地模型文件
+- `llama-cpp-python` 库（会自动安装）
+- 足够的系统内存（建议 8GB+）
+
+**📦 安装和配置：**
+
+1. **自动下载推荐模型（推荐）**
+   ```bash
+   # 运行自动下载脚本
+   python download_model.py
+   ```
+   
+   这将自动：
+   - 下载推荐的 GGUF 模型到 `models/` 目录
+   - 生成本地 LLM 配置示例
+   - 测试模型加载和推理
+   - 显示性能基准
+
+2. **手动下载模型**
+   
+   创建 `models/` 目录并下载 GGUF 模型：
+   ```bash
+   mkdir models
+   # 下载示例（使用 HuggingFace Hub）
+   pip install huggingface-hub
+   python -c "
+   from huggingface_hub import hf_hub_download
+   hf_hub_download(
+       repo_id='Qwen/Qwen2.5-1.5B-Instruct-GGUF',
+       filename='qwen2.5-1.5b-instruct-q4_k_m.gguf',
+       local_dir='./models'
+   )"
+   ```
+
+3. **配置本地 LLM**
+   ```yaml
+   llm:
+     provider: "local"
+     local:
+       enabled: true
+       model_path: "./models/qwen2.5-1.5b-instruct-q4_k_m.gguf"
+       # 模型参数
+       n_ctx: 4096          # 上下文长度
+       n_threads: 4         # CPU 线程数
+       n_gpu_layers: 0      # GPU 层数（0=仅CPU）
+       verbose: false       # 是否显示详细日志
+     parameters:
+       temperature: 0.7     # 创造性
+       max_tokens: 1000     # 最大输出长度
+       top_p: 0.9          # 核采样
+       repeat_penalty: 1.1  # 重复惩罚
+   ```
+
+**🚀 推荐模型：**
+
+| 模型名称 | 大小 | 内存需求 | 性能 | 推荐用途 |
+|----------|------|----------|------|----------|
+| Qwen2.5-1.5B-Instruct-Q4_K_M | ~1.0GB | 2-3GB | 快速 | 轻量部署，快速响应 |
+| Qwen2.5-3B-Instruct-Q4_K_M | ~2.0GB | 4-5GB | 中等 | 平衡性能和质量 |
+| Qwen2.5-7B-Instruct-Q4_K_M | ~4.0GB | 6-8GB | 高 | 高质量分析 |
+
+**⚙️ 性能优化：**
+
+```yaml
+# CPU 优化配置
+llm:
+  provider: "local"
+  local:
+    model_path: "./models/your-model.gguf"
+    n_ctx: 2048          # 减少上下文长度
+    n_threads: 8         # 使用更多 CPU 线程
+    n_batch: 512         # 批处理大小
+    use_mlock: true      # 锁定内存
+
+# GPU 加速配置（如有 CUDA GPU）
+llm:
+  provider: "local"
+  local:
+    model_path: "./models/your-model.gguf"
+    n_gpu_layers: 35     # 将层加载到 GPU
+    # 其他参数...
+```
+
+**🔍 依赖检查：**
+运行配置检查会自动检测本地 LLM 依赖：
+```bash
+python check.py
+```
+
+**🛠️ 故障排除：**
+
+**问题：模型加载失败**
+```bash
+# 检查模型文件是否存在和完整
+python -c "
+import os
+model_path = './models/your-model.gguf'
+if os.path.exists(model_path):
+    print(f'模型文件存在，大小: {os.path.getsize(model_path) / 1024**3:.2f} GB')
+else:
+    print('模型文件不存在')
+"
+```
+
+**问题：内存不足**
+- 选择更小的模型（如 1.5B 而不是 7B）
+- 减少 `n_ctx` 参数
+- 设置 `n_gpu_layers: 0` 仅使用 CPU
+
+**问题：推理速度慢**
+- 增加 `n_threads` 到 CPU 核心数
+- 使用量化程度更高的模型（Q4_K_M）
+- 考虑 GPU 加速（如果可用）
+
+**📚 更多信息：**
+- 详细模型说明：查看 `models/README.md`
+- 完整配置示例：查看 `config_local_llm.yaml`
+- 模型下载工具：使用 `download_model.py`
+
 ### 向后兼容配置
 
 #### 传统 Gemini 配置
@@ -1054,6 +1274,81 @@ for event in events:
    pip install -r requirements.txt
    ```
 
+### 本地 LLM 相关问题 🆕
+
+1. **llama-cpp-python 安装失败**
+   ```bash
+   # Windows 系统可能需要额外工具
+   # 安装 Microsoft C++ Build Tools
+   # 或者使用预编译版本：
+   pip install llama-cpp-python --only-binary=llama-cpp-python
+   ```
+
+2. **模型加载失败**
+   ```bash
+   # 检查模型文件是否存在
+   python -c "
+   import os
+   model_path = './models/your-model.gguf'
+   if os.path.exists(model_path):
+       size_gb = os.path.getsize(model_path) / (1024**3)
+       print(f'模型文件存在，大小: {size_gb:.2f} GB')
+   else:
+       print('模型文件不存在，请重新下载')
+   "
+   
+   # 测试模型兼容性
+   python -c "
+   try:
+       from llama_cpp import Llama
+       print('llama-cpp-python 已正确安装')
+   except ImportError:
+       print('llama-cpp-python 未安装或安装有问题')
+   "
+   ```
+
+3. **内存不足错误**
+   ```bash
+   # 选择更小的模型或调整参数
+   # 在 config.yaml 中：
+   # n_ctx: 2048      # 减少上下文长度
+   # n_batch: 256     # 减少批处理大小
+   ```
+
+4. **推理速度过慢**
+   ```bash
+   # 检查 CPU 使用情况并调整线程数
+   # 在 config.yaml 中：
+   # n_threads: 8     # 设置为 CPU 核心数
+   # use_mlock: true  # 锁定内存提高性能
+   ```
+
+5. **CUDA/GPU 相关问题**
+   ```bash
+   # 检查 CUDA 是否可用
+   python -c "
+   try:
+       import torch
+       print(f'CUDA 可用: {torch.cuda.is_available()}')
+       if torch.cuda.is_available():
+           print(f'CUDA 设备数: {torch.cuda.device_count()}')
+   except ImportError:
+       print('PyTorch 未安装，无法检查 CUDA')
+   "
+   
+   # 如果 CUDA 不可用，设置仅使用 CPU
+   # n_gpu_layers: 0
+   ```
+
+6. **配置检查和测试**
+   ```bash
+   # 运行配置检查，会自动检测本地 LLM 问题
+   python check.py
+   
+   # 使用模型下载工具重新配置
+   python download_model.py
+   ```
+
 ### 监控和性能
 
 #### 监控面板示例脚本
@@ -1171,13 +1466,175 @@ nano config.yaml
 
 MIT License
 
-## 📞 支持
+## � 常见问题 (FAQ)
+
+### 本地 LLM 相关问题
+
+#### Q1: 本地模型响应格式错误怎么办？
+
+**问题**: 本地 LLM 有时生成的 JSON 格式不规范，导致解析失败和事件提醒失效。
+
+**⚠️ 重要警告**：
+- 本地模型约有 **30-50%** 的概率生成错误格式
+- 可能导致重要事件**无法正确分析和提醒**
+- 生产环境强烈建议使用云端 LLM
+
+**解决方案**: Chrona v3.0 已内置智能容错机制：
+
+1. **自动 JSON 提取**: 从复杂响应中自动提取 JSON 对象
+2. **容错解析**: JSON 格式错误时使用关键词分析
+3. **优化提示词**: 为本地模型定制更严格的输出格式要求
+4. **回退机制**: 解析失败时基于规则进行智能判断
+
+**本地模型优化配置**:
+```yaml
+llm:
+  local:
+    enabled: true
+    model_path: "models/Qwen3-1.7B-Q4_K_M.gguf"
+    temperature: 0.1  # 极低温度提高稳定性
+    top_p: 0.6        # 大幅减少随机性
+    max_tokens: 300   # 限制输出长度
+    repeat_penalty: 1.2  # 避免重复内容
+```
+
+**最佳实践**:
+- 🌟 **生产环境**: 使用 Gemini（免费额度充足）或 DeepSeek（价格便宜）
+- 🧪 **测试环境**: 可使用本地模型进行实验，但需密切监控输出质量
+- 📊 **混合模式**: 重要日历使用云端 LLM，一般日历使用本地模型
+
+#### Q2: 本地模型加载速度慢？
+
+**优化建议**:
+- 使用 SSD 存储模型文件
+- 增加 `n_threads` 参数（CPU 核心数）
+- 启用 GPU 加速（设置 `gpu_layers`）
+- 选择更小的量化模型（如 Q4_K_M）
+
+#### Q3: 依赖安装失败？
+
+**Windows 用户**:
+```powershell
+# 1. 安装 Visual Studio Build Tools
+# 2. 安装 CMake
+# 3. 使用预编译版本
+pip install llama-cpp-python --prefer-binary
+```
+
+**详细说明**: 参考 [models/README.md](models/README.md)
+
+### CalDAV 连接问题
+
+#### Q4: CalDAV 认证失败？
+
+**常见原因**:
+1. 密码错误（需要使用应用专用密码）
+2. URL 格式不正确
+3. 服务器不支持 CalDAV
+
+**解决步骤**:
+```bash
+# 测试配置
+python check.py
+```
+
+#### Q5: 多个日历服务部分失败？
+
+Chrona 支持容错处理，单个服务失败不影响其他服务：
+
+```yaml
+caldav:
+  providers:
+    working_service:     # 正常工作的服务
+      url: "https://caldav.icloud.com"
+      # ...
+    
+    failing_service:     # 即使此服务失败
+      url: "https://broken-service.com"
+      # ...
+```
+
+**日志查看**: 检查终端输出中的错误信息
+
+### Webhook 配置问题
+
+#### Q6: Webhook 不触发？
+
+**检查列表**:
+- [ ] URL 是否可访问
+- [ ] HTTP 方法是否正确
+- [ ] 网络连接是否正常
+- [ ] 服务器是否返回 200 状态码
+
+**测试方法**:
+```bash
+# 手动测试 webhook
+curl -X POST -H "Content-Type: application/json" \
+  -d '{"test": "message"}' \
+  https://your-webhook-url.com
+```
+
+### 性能优化
+
+#### Q7: 系统资源占用高？
+
+**优化配置**:
+```yaml
+# 减少检查频率
+check_interval: 300  # 5分钟检查一次
+
+# 本地模型优化
+llm:
+  local:
+    context_length: 1024  # 减少上下文长度
+    gpu_layers: 0         # 关闭 GPU（如果不需要）
+```
+
+#### Q8: 日程分析太慢？
+
+**建议**:
+1. 使用云端 LLM（Gemini/DeepSeek）获得更快响应
+2. 优化本地模型参数：
+   ```yaml
+   temperature: 0.1      # 降低随机性，加快生成
+   max_tokens: 300       # 减少输出长度
+   ```
+
+### 调试和日志
+
+#### Q9: 如何启用详细日志？
+
+```yaml
+# 启用详细日志
+llm:
+  local:
+    verbose: true
+
+# 或在启动时
+python agent.py --verbose
+```
+
+#### Q10: 如何报告问题？
+
+提交 Issue 时请包含：
+1. 完整的错误日志
+2. 配置文件（删除敏感信息）
+3. 系统环境信息
+4. 重现步骤
+
+**获取系统信息**:
+```bash
+python check.py --verbose
+```
+
+## �📞 支持
 
 如有问题，请创建 Issue 或联系维护者。
 
 ## 📚 更多文档
 
 - ⚙️ [配置文件模板](config.yaml.example) - 配置文件示例和说明
+- 🤖 [本地模型指南](models/README.md) - 本地 LLM 详细配置说明
 
 ---
 

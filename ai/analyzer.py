@@ -62,7 +62,8 @@ def analyze_event(summary, description, config, start_time=None, end_time=None, 
 标题: {summary}
 描述: {description}
 
-请只输出JSON格式，不要包含其他文字：
+重要：请严格按照以下JSON格式输出，不要添加任何额外文字或解释：
+{{"task":"简化任务描述","important":true,"need_remind":true,"minutes_before_remind":15,"reason":"判断理由"}}
 """
 
     # 使用新的LLM客户端
@@ -77,19 +78,26 @@ def analyze_event(summary, description, config, start_time=None, end_time=None, 
         
         text = result['text']
         
-        # 尝试解析JSON
+        # 尝试解析JSON - 增强容错版本
         try:
-            # 清理可能的markdown标记
+            # 清理可能的markdown标记和额外内容
             text = text.strip()
+            
+            # 移除markdown代码块标记
             if text.startswith('```json'):
                 text = text[7:]
-            if text.startswith('```'):
+            elif text.startswith('```'):
                 text = text[3:]
             if text.endswith('```'):
                 text = text[:-3]
             text = text.strip()
             
-            parsed_result = json.loads(text)
+            # 尝试提取JSON对象
+            json_text = _extract_json_object(text)
+            if not json_text:
+                json_text = text
+            
+            parsed_result = json.loads(json_text)
             
             # 验证必需字段
             required_fields = ['task', 'important', 'need_remind', 'minutes_before_remind']
@@ -103,7 +111,95 @@ def analyze_event(summary, description, config, start_time=None, end_time=None, 
             return parsed_result
             
         except json.JSONDecodeError as e:
+            # JSON解析失败时，尝试容错处理
+            print(f"⚠️ JSON解析失败，尝试容错处理: {e}")
+            print(f"原始响应: {text[:200]}...")
+            
+            # 尝试更激进的JSON提取
+            fallback_result = _fallback_json_parse(text, summary, description)
+            if fallback_result:
+                fallback_result['_llm_info'] = llm_client.get_provider_info()
+                fallback_result['_parsing_method'] = 'fallback'
+                return fallback_result
+            
             return {"error": f"JSON解析失败: {e}", "raw": text}
             
     except Exception as e:
         return {"error": f"分析失败: {e}"}
+
+def _extract_json_object(text):
+    """从响应文本中提取JSON对象"""
+    import re
+    
+    # 尝试找到JSON对象的边界
+    patterns = [
+        r'\{[^}]*"task"[^}]*\}',  # 寻找包含task字段的JSON对象
+        r'\{.*?\}',  # 寻找任何JSON对象
+        r'\[.*?\]'   # 寻找JSON数组
+    ]
+    
+    for pattern in patterns:
+        matches = re.findall(pattern, text, re.DOTALL)
+        for match in matches:
+            try:
+                # 测试是否是有效的JSON
+                json.loads(match)
+                return match
+            except:
+                continue
+    
+    # 尝试从第一个{到最后一个}
+    start = text.find('{')
+    end = text.rfind('}')
+    if start != -1 and end != -1 and end > start:
+        candidate = text[start:end+1]
+        try:
+            json.loads(candidate)
+            return candidate
+        except:
+            pass
+    
+    return None
+
+def _fallback_json_parse(text, summary, description):
+    """当JSON解析失败时的容错处理"""
+    import re
+    
+    # 基于规则的简单分析
+    result = {
+        'task': summary[:50] if summary else '未知任务',
+        'important': False,
+        'need_remind': False,
+        'minutes_before_remind': 15,
+        'reason': '容错解析：无法正确解析AI响应'
+    }
+    
+    # 尝试从文本中提取关键信息
+    text_lower = text.lower()
+    
+    # 检查重要性关键词
+    important_keywords = ['重要', '紧急', '会议', '面试', '项目', 'important', 'urgent', 'meeting', 'interview']
+    if any(keyword in text_lower for keyword in important_keywords):
+        result['important'] = True
+        result['need_remind'] = True
+        result['minutes_before_remind'] = 30
+        result['reason'] += '；检测到重要关键词'
+    
+    # 检查提醒相关关键词
+    remind_keywords = ['提醒', '通知', 'remind', 'notify', 'alert']
+    if any(keyword in text_lower for keyword in remind_keywords):
+        result['need_remind'] = True
+        result['reason'] += '；检测到提醒关键词'
+    
+    # 尝试用正则表达式提取数值
+    minutes_match = re.search(r'(\d+)\s*分钟', text)
+    if minutes_match:
+        result['minutes_before_remind'] = int(minutes_match.group(1))
+        result['reason'] += f'；提取到提醒时间：{result["minutes_before_remind"]}分钟'
+    
+    # 检查布尔值
+    if 'true' in text_lower or '是' in text:
+        result['need_remind'] = True
+        result['reason'] += '；检测到肯定回答'
+    
+    return result

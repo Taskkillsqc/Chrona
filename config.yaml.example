@@ -12,8 +12,22 @@
 # LLM 配置 - V3 增强版
 llm:
   # 预设模型配置（推荐）
-  provider: "gemini"  # 支持: gemini, deepseek, openai, custom
+  provider: "gemini"  # 支持: gemini, deepseek, openai, custom, local
   api_key: "your-api-key-here"
+  
+  # 本地模型配置（离线使用）
+  local:
+    enabled: false  # 是否启用本地模型
+    model_path: "./models/qwen2.5-1.5b-instruct-q4_k_m.gguf"  # 模型文件路径
+    context_length: 2048  # 上下文长度
+    gpu_layers: 0  # 使用 GPU 的层数，0 表示仅使用 CPU
+    n_threads: null  # CPU 线程数，null 表示自动检测
+    verbose: false  # 是否显示详细日志
+    temperature: 0.7  # 创造性参数
+    max_tokens: 1000  # 最大生成令牌数
+    top_p: 0.9  # 核采样参数
+    top_k: 40  # top-k 采样
+    repeat_penalty: 1.1  # 重复惩罚
   
   # 自定义配置（高级用户）
   custom:
@@ -27,7 +41,7 @@ llm:
     response_format: "openai"  # 响应格式: openai, custom
     timeout: 30  # 请求超时时间（秒）
   
-  # 高级参数
+  # 高级参数（仅用于在线模型）
   parameters:
     temperature: 0.7  # 创造性参数 (0.0-2.0)
     max_tokens: 1000  # 最大令牌数

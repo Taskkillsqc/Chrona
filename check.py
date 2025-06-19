@@ -74,6 +74,8 @@ def check_dependencies():
                     import_name = 'yaml'
                 elif package == 'uvicorn[standard]':
                     import_name = 'uvicorn'
+                elif package == 'llama-cpp-python':
+                    import_name = 'llama_cpp'
                 else:
                     import_name = package.replace('-', '_')
                 
@@ -135,7 +137,25 @@ def check_configuration():
         llm_configured = False
         if 'llm' in config:
             llm_config = config['llm']
-            if llm_config.get('custom', {}).get('enabled', False):
+            if llm_config.get('local', {}).get('enabled', False):
+                # 本地模型配置
+                local_config = llm_config['local']
+                model_path = local_config.get('model_path')
+                if model_path and os.path.exists(model_path):
+                    print(f"  ✅ llm (本地模型: {os.path.basename(model_path)})")
+                    llm_configured = True
+                    
+                    # 检查可选的 llama-cpp-python 依赖
+                    try:
+                        import llama_cpp
+                        print(f"    📦 llama-cpp-python 已安装")
+                    except ImportError:
+                        print(f"    ⚠️  本地模型需要安装 llama-cpp-python")
+                        print(f"        运行: pip install llama-cpp-python")
+                else:
+                    print(f"  ❌ llm 本地模型文件不存在: {model_path}")
+                    print(f"      请下载模型并放置在指定路径，或查看 models/README.md")
+            elif llm_config.get('custom', {}).get('enabled', False):
                 # 自定义配置
                 if llm_config['custom'].get('url') and llm_config['custom'].get('model'):
                     print(f"  ✅ llm (自定义配置: {llm_config['custom']['model']})")

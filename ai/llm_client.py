@@ -1,10 +1,11 @@
 """
 LLM 客户端模块 - V3 版本
-支持多种 LLM 提供商和自定义配置
+支持多种 LLM 提供商、自定义配置和本地模型
 """
 
 import requests
 import json
+import os
 from typing import Dict, Any, Optional
 
 class LLMClient:
@@ -13,15 +14,37 @@ class LLMClient:
     def __init__(self, config: Dict[str, Any]):
         self.config = config
         self.llm_config = self._parse_config()
+        self.local_model = None  # 用于缓存本地模型实例
         
     def _parse_config(self) -> Dict[str, Any]:
         """解析配置，支持新旧格式"""
         # 优先使用新的 llm 配置
         if 'llm' in self.config:
             llm_config = self.config['llm']
-            
+              # 如果启用了本地模型
+            if llm_config.get('local', {}).get('enabled', False):
+                local_config = llm_config['local']
+                model_path = local_config.get('model_path')
+                if not model_path or not os.path.exists(model_path):
+                    print(f"⚠️ 警告: 本地模型文件不存在: {model_path}")
+                
+                return {
+                    'provider': 'local',
+                    'model_path': model_path,
+                    'context_length': local_config.get('context_length', 2048),
+                    'gpu_layers': local_config.get('gpu_layers', 0),
+                    'n_threads': local_config.get('n_threads', None),
+                    'verbose': local_config.get('verbose', False),
+                    'parameters': {
+                        'temperature': local_config.get('temperature', 0.7),
+                        'max_tokens': local_config.get('max_tokens', 1000),
+                        'top_p': local_config.get('top_p', 0.9),
+                        'top_k': local_config.get('top_k', 40),
+                        'repeat_penalty': local_config.get('repeat_penalty', 1.1)
+                    }
+                }
             # 如果启用了自定义配置
-            if llm_config.get('custom', {}).get('enabled', False):
+            elif llm_config.get('custom', {}).get('enabled', False):
                 return {
                     'provider': 'custom',
                     'url': llm_config['custom']['url'],
@@ -58,15 +81,16 @@ class LLMClient:
             
             return {
                 'provider': provider,
-                'api_key': api_key,
-                'parameters': {},
+                'api_key': api_key,                'parameters': {},
                 'timeout': 30
             }
     
     def generate(self, prompt: str) -> Dict[str, Any]:
         """生成回复"""
         try:
-            if self.llm_config['provider'] == 'gemini':
+            if self.llm_config['provider'] == 'local':
+                return self._call_local(prompt)
+            elif self.llm_config['provider'] == 'gemini':
                 return self._call_gemini(prompt)
             elif self.llm_config['provider'] == 'deepseek':
                 return self._call_deepseek(prompt)
@@ -232,11 +256,68 @@ class LLMClient:
                 # 自定义响应格式，尝试常见字段
                 text = data.get('text') or data.get('content') or data.get('response')
                 if not text:
-                    return {"error": "无法解析自定义API响应", "raw": data}
-            
+                    return {"error": "无法解析自定义API响应", "raw": data}            
             return {"success": True, "text": text}
         else:
             return {"error": f"自定义API请求失败: {response.status_code}", "raw": response.text}
+    
+    def _call_local(self, prompt: str) -> Dict[str, Any]:
+        """调用本地 GGUF 模型"""
+        try:
+            # 延迟导入 llama-cpp-python，避免在不使用本地模型时的依赖问题
+            from llama_cpp import Llama
+        except ImportError:
+            return {
+                "error": "llama-cpp-python 未安装",
+                "details": [
+                    "本地 LLM 需要 llama-cpp-python 库支持",
+                    "Windows 安装说明:",
+                    "1. 安装 Visual Studio Build Tools 或 Visual Studio Community",
+                    "2. 安装 CMake: https://cmake.org/download/",
+                    "3. 运行: pip install llama-cpp-python",
+                    "或者使用预编译版本: pip install llama-cpp-python --prefer-binary",
+                    "详细说明请参考: models/README.md"
+                ]
+            }
+        
+        model_path = self.llm_config.get('model_path')
+        if not model_path or not os.path.exists(model_path):
+            return {"error": f"本地模型文件不存在: {model_path}"}
+        
+        try:
+            # 如果模型还未加载，则加载模型
+            if self.local_model is None:
+                print(f"🤖 正在加载本地模型: {os.path.basename(model_path)}")
+                self.local_model = Llama(
+                    model_path=model_path,
+                    n_ctx=self.llm_config.get('context_length', 2048),
+                    n_gpu_layers=self.llm_config.get('gpu_layers', 0),
+                    n_threads=self.llm_config.get('n_threads', None),
+                    verbose=self.llm_config.get('verbose', False)
+                )
+                print(f"✅ 本地模型加载成功")
+              # 生成回复
+            params = self.llm_config.get('parameters', {})
+            response = self.local_model(
+                prompt,
+                max_tokens=params.get('max_tokens', 1000),
+                temperature=params.get('temperature', 0.7),
+                top_p=params.get('top_p', 0.9),
+                top_k=params.get('top_k', 40),
+                repeat_penalty=params.get('repeat_penalty', 1.1),
+                stop=["</s>", "<|im_end|>", "<|endoftext|>", "\n\n", "```", "---"]  # 扩展停止标记，避免过度生成
+            )
+            
+            # 提取生成的文本
+            if isinstance(response, dict) and 'choices' in response:
+                text = response['choices'][0]['text'].strip()
+            else:
+                text = str(response).strip()
+            
+            return {"success": True, "text": text}
+            
+        except Exception as e:
+            return {"error": f"本地模型调用失败: {str(e)}"}
     
     def get_provider_info(self) -> Dict[str, Any]:
         """获取当前提供商信息"""

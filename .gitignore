@@ -51,6 +51,11 @@ data/
 *.db
 *.log
 
+# Models (too large for git)
+models/*.gguf
+models/*.bin
+models/*.safetensors
+
 # Docker
 .dockerignore
 
