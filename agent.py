@@ -17,12 +17,12 @@ warnings.filterwarnings("ignore")
 import urllib3
 urllib3.disable_warnings()
 
-from caldav_client.caldav_client import get_upcoming_events
-from ai.LLM_agent import analyze_event
+from caldav_client.client import get_upcoming_events
+from ai.analyzer import analyze_event
 from memory.database import init_db, save_event_analysis, get_events_to_remind, mark_reminded, get_stats, cleanup_old_events
-from notifier.webhook import send_notification, send_test_notification
-from heartbeat.heartbeat import HeartbeatSender
-from api.api_server import APIServer
+from services.notifier import send_notification, send_test_notification
+from services.heartbeat import HeartbeatSender
+from services.api_server import APIServer
 from config import CONFIG
 
 # 配置常量
@@ -276,7 +276,8 @@ class CalendarAgent:
         
         print(f"\n⏰ 开始监控日程...")
         
-        # 立即执行一次
+        # 立即执行一次，先清理过期事件，再检查提醒
+        cleanup_old_events(days=7)  # 首先清理过期事件
         self.fetch_and_analyze_events()
         self.check_and_send_reminders()
         self.print_stats()
@@ -286,9 +287,11 @@ class CalendarAgent:
             try:
                 current_time = datetime.now()
                 
-                # 检查是否需要获取新事件
+                # 检查是否需要获取新事件（先清理过期数据）
                 if (not self.last_fetch_time or 
                     (current_time - self.last_fetch_time).total_seconds() >= INTERVAL):
+                    # 每次获取新事件前先清理过期事件
+                    cleanup_old_events(days=7)
                     self.fetch_and_analyze_events()
                 
                 # 检查是否需要发送提醒

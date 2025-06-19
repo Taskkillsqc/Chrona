@@ -186,16 +186,49 @@ def cleanup_old_events(days=7):
     
     try:
         c = conn.cursor()
+        
+        # 清理创建时间超过指定天数的事件
         c.execute("""
             DELETE FROM events 
             WHERE created_at < datetime('now', '-{} days')
         """.format(days))
         
-        deleted = c.rowcount
+        deleted_created = c.rowcount
+        
+        # 清理已经结束超过1小时的事件（使用结束时间判断）
+        c.execute("""
+            DELETE FROM events 
+            WHERE end_time IS NOT NULL 
+            AND end_time < datetime('now', '-1 hour')
+        """)
+        
+        deleted_expired = c.rowcount
+        
+        # 对于没有结束时间的事件，使用开始时间+持续时间来判断
+        c.execute("""
+            DELETE FROM events 
+            WHERE end_time IS NULL 
+            AND duration_minutes IS NOT NULL
+            AND datetime(start_time, '+' || duration_minutes || ' minutes') < datetime('now', '-1 hour')
+        """)
+        
+        deleted_no_endtime = c.rowcount
+        
+        # 对于既没有结束时间也没有持续时间的事件，使用开始时间+2小时作为默认结束时间
+        c.execute("""
+            DELETE FROM events 
+            WHERE end_time IS NULL 
+            AND duration_minutes IS NULL
+            AND datetime(start_time, '+2 hours') < datetime('now', '-1 hour')
+        """)
+        
+        deleted_fallback = c.rowcount
+        
         conn.commit()
         
-        if deleted > 0:
-            print(f"清理了 {deleted} 条旧事件记录")
+        total_deleted = deleted_expired + deleted_no_endtime + deleted_fallback
+        if deleted_created > 0 or total_deleted > 0:
+            print(f"清理了 {deleted_created} 条旧事件记录，{total_deleted} 条过期事件")
         
         return True
         
