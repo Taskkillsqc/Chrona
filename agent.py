@@ -189,7 +189,7 @@ class CalendarAgent:
                         print(f"   当前时间: {current_time_china.strftime('%Y-%m-%d %H:%M:%S')} (北京时间)")
                         
                         webhook_type = CONFIG.get('webhook_type', 'generic')
-                        if send_notification(event, event['result'], CONFIG['webhook_url'], webhook_type):
+                        if send_notification(event, event['result'], CONFIG['webhook_url'], webhook_type, CONFIG):
                             mark_reminded(event['id'], "sent")
                         else:
                             mark_reminded(event['id'], "failed")
@@ -288,7 +288,7 @@ class CalendarAgent:
         if CONFIG.get('webhook_url') and CONFIG['webhook_url'] != "https://your.gitify.endpoint/webhook":
             print(f"\n🧪 发送测试通知...")
             webhook_type = CONFIG.get('webhook_type', 'generic')
-            if send_test_notification(CONFIG['webhook_url'], webhook_type):
+            if send_test_notification(CONFIG['webhook_url'], webhook_type, CONFIG):
                 print("✅ 测试通知发送成功")
             else:
                 print("❌ 测试通知发送失败，请检查webhook配置")

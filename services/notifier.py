@@ -1,8 +1,9 @@
 import requests
 import json
+import re
 from datetime import datetime
 
-def send_notification(event, result, webhook_url, webhook_type="generic"):
+def send_notification(event, result, webhook_url, webhook_type="generic", config=None):
     """发送Webhook通知"""
     try:
         # 根据webhook类型构造不同格式的数据
@@ -10,6 +11,8 @@ def send_notification(event, result, webhook_url, webhook_type="generic"):
             return send_gotify_notification(event, result, webhook_url)
         elif webhook_type == "slack":
             return send_slack_notification(event, result, webhook_url)
+        elif webhook_type == "custom":
+            return send_custom_notification(event, result, webhook_url, config)
         else:
             return send_generic_notification(event, result, webhook_url)
             
@@ -149,12 +152,13 @@ def format_notification_body(event, result):
     
     return "\n".join(lines)
 
-def send_test_notification(webhook_url, webhook_type="generic"):
+def send_test_notification(webhook_url, webhook_type="generic", config=None):
     """发送测试通知"""
     test_event = {
         'summary': '测试通知',
         'description': '这是一个测试通知，用于验证Webhook是否正常工作',
         'start_time': datetime.now().isoformat(),
+        'calendar_name': '测试日历',
         'uid': 'test-notification'
     }
     
@@ -166,7 +170,7 @@ def send_test_notification(webhook_url, webhook_type="generic"):
         'reason': '系统测试'
     }
     
-    return send_notification(test_event, test_result, webhook_url, webhook_type)
+    return send_notification(test_event, test_result, webhook_url, webhook_type, config)
 
 def send_slack_notification(event, result, slack_webhook_url):
     """发送Slack格式的通知（可选）"""
@@ -219,3 +223,115 @@ def send_slack_notification(event, result, slack_webhook_url):
     except Exception as e:
         print(f"Slack通知发送失败: {e}")
         return False
+
+def send_custom_notification(event, result, webhook_url, config):
+    """发送自定义格式的Webhook通知"""
+    try:
+        # 获取自定义配置
+        webhook_config = config.get('webhook_custom', {})
+        
+        if not webhook_config.get('enabled', False):
+            print("❌ 自定义 webhook 未启用")
+            return False
+        
+        # 构建变量字典
+        variables = {
+            'title': f"📅 日程提醒: {event.get('summary', '未知事件')}",
+            'body': format_notification_body(event, result),
+            'timestamp': datetime.now().isoformat(),
+            'priority': 8 if result.get('important', False) else 5,
+            'event': {
+                'summary': event.get('summary', ''),
+                'description': event.get('description', ''),
+                'start_time': event.get('start_time', ''),
+                'end_time': event.get('end_time', ''),
+                'duration_minutes': event.get('duration_minutes', 0),
+                'calendar_name': event.get('calendar_name', ''),
+                'uid': event.get('uid', '')
+            },
+            'analysis': {
+                'important': result.get('important', False),
+                'need_remind': result.get('need_remind', False),
+                'minutes_before_remind': result.get('minutes_before_remind', 15),
+                'reason': result.get('reason', ''),
+                'task': result.get('task', '')
+            }
+        }
+        
+        # 处理模板字符串
+        payload_template = webhook_config.get('payload_template', '{}')
+        payload_str = replace_template_variables(payload_template, variables)
+        
+        # 解析为 JSON
+        try:
+            payload = json.loads(payload_str)
+        except json.JSONDecodeError as e:
+            print(f"❌ 自定义 webhook 模板 JSON 解析失败: {e}")
+            print(f"模板内容: {payload_str}")
+            return False
+        
+        # 构建请求头
+        headers = {"Content-Type": "application/json"}
+        custom_headers = webhook_config.get('headers', {})
+        headers.update(custom_headers)
+        
+        # 获取请求方法和超时时间
+        method = webhook_config.get('method', 'POST').upper()
+        timeout = webhook_config.get('timeout', 30)
+        custom_url = webhook_config.get('url', webhook_url)
+        
+        # 发送请求
+        if method == 'GET':
+            response = requests.get(custom_url, params=payload, headers=headers, timeout=timeout)
+        elif method == 'POST':
+            response = requests.post(custom_url, json=payload, headers=headers, timeout=timeout)
+        elif method == 'PUT':
+            response = requests.put(custom_url, json=payload, headers=headers, timeout=timeout)
+        else:
+            print(f"❌ 不支持的 HTTP 方法: {method}")
+            return False
+        
+        if response.status_code in [200, 201, 202, 204]:
+            print(f"✅ 自定义通知发送成功: {event.get('summary', '')}")
+            return True
+        else:
+            print(f"❌ 自定义通知发送失败 ({response.status_code}): {event.get('summary', '')}")
+            print(f"响应内容: {response.text[:200]}...")
+            return False
+            
+    except requests.RequestException as e:
+        print(f"❌ 网络错误，自定义通知发送失败: {e}")
+        return False
+    except Exception as e:
+        print(f"❌ 发送自定义通知时出现未知错误: {e}")
+        return False
+
+def replace_template_variables(template, variables):
+    """递归替换模板变量"""
+    def replace_var(match):
+        var_path = match.group(1)
+        keys = var_path.split('.')
+        
+        try:
+            value = variables
+            for key in keys:
+                value = value[key]
+            
+            # 根据类型进行格式化
+            if isinstance(value, bool):
+                return 'true' if value else 'false'
+            elif isinstance(value, (int, float)):
+                return str(value)
+            elif isinstance(value, str):
+                # 转义字符串中的特殊字符
+                escaped_value = value.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t')
+                return f'"{escaped_value}"'
+            else:
+                return json.dumps(value)
+        except (KeyError, TypeError):
+            print(f"⚠️ 模板变量 {{{{{{var_path}}}}}} 未找到")
+            return f'"{{{{{{var_path}}}}}}"'  # 保持原样
+    
+    # 替换所有 {{variable}} 格式的变量
+    result = re.sub(r'\{\{([^}]+)\}\}', replace_var, template)
+    return result

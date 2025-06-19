@@ -161,8 +161,21 @@ def check_configuration():
         webhook_type = config.get('webhook_type', 'generic')
         print(f"  ✅ webhook_type ({webhook_type})")
         
-        if webhook_type not in ['gotify', 'slack', 'generic']:
+        if webhook_type not in ['gotify', 'slack', 'generic', 'custom']:
             print(f"  ⚠️  不支持的 webhook_type: {webhook_type}，将使用 generic 格式")
+        
+        # 检查自定义 webhook 配置
+        if webhook_type == 'custom':
+            webhook_custom = config.get('webhook_custom', {})
+            if webhook_custom.get('enabled', False):
+                custom_url = webhook_custom.get('url')
+                payload_template = webhook_custom.get('payload_template')
+                if custom_url and payload_template:
+                    print(f"  ✅ webhook_custom (已配置)")
+                else:
+                    print(f"  ❌ webhook_custom 配置不完整，缺少 url 或 payload_template")
+            else:
+                print(f"  ⚠️  webhook_type 为 custom 但 webhook_custom 未启用")
         
         # 检查新功能配置
         heartbeat_config = config.get('heartbeat', {})
@@ -310,6 +323,8 @@ def check_webhook_push():
             return check_gotify_push_specific(webhook_url, verification_code)
         elif webhook_type == "slack":
             return check_slack_push_specific(webhook_url, verification_code)
+        elif webhook_type == "custom":
+            return check_custom_push_specific(webhook_url, verification_code, config)
         else:
             return check_generic_push_specific(webhook_url, verification_code)
             
@@ -741,6 +756,112 @@ def simulate_api_service():
         
     except Exception as e:
         print(f"  ❌ 模拟API服务测试失败: {e}")
+        return False
+
+def check_custom_push_specific(webhook_url, verification_code, config):
+    """检查自定义格式推送"""
+    webhook_custom = config.get('webhook_custom', {})
+    
+    if not webhook_custom.get('enabled', False):
+        print("❌ 自定义 webhook 未启用")
+        return False
+    
+    # 使用自定义配置中的 URL（如果有的话）
+    custom_url = webhook_custom.get('url', webhook_url)
+    
+    # 构建测试数据
+    from datetime import datetime
+    test_variables = {
+        'title': '"🔍 Chrona 验证"',
+        'body': f'"验证码: {verification_code}\\n\\n请在终端中输入此验证码以确认自定义Webhook推送功能正常工作。"',
+        'timestamp': f'"{datetime.now().isoformat()}"',
+        'priority': '5',
+        'event': {
+            'summary': '"测试事件"',
+            'description': '"测试自定义webhook"',
+            'start_time': f'"{datetime.now().isoformat()}"',
+            'calendar_name': '"测试日历"',
+            'duration_minutes': '0'
+        },
+        'analysis': {
+            'important': 'false',
+            'need_remind': 'true',
+            'reason': '"自定义webhook测试"',
+            'task': '"验证推送功能"'
+        }
+    }
+    
+    try:
+        # 导入替换函数
+        import sys
+        import os
+        sys.path.append(os.path.dirname(__file__))
+        from services.notifier import replace_template_variables
+        
+        # 处理模板
+        payload_template = webhook_custom.get('payload_template', '{}')
+        payload_str = replace_template_variables(payload_template, test_variables)
+        
+        # 解析为 JSON
+        import json
+        payload = json.loads(payload_str)
+        
+        # 构建请求头
+        headers = {"Content-Type": "application/json"}
+        custom_headers = webhook_custom.get('headers', {})
+        headers.update(custom_headers)
+        
+        # 获取请求配置
+        method = webhook_custom.get('method', 'POST').upper()
+        timeout = webhook_custom.get('timeout', 30)
+        
+        print("📤 正在发送自定义格式验证码...")
+        return send_custom_verification_and_check(custom_url, payload, headers, method, timeout, verification_code)
+        
+    except Exception as e:
+        print(f"❌ 自定义webhook配置处理失败: {e}")
+        return False
+
+def send_custom_verification_and_check(url, payload, headers, method, timeout, verification_code):
+    """发送自定义格式验证码并检查用户输入"""
+    try:
+        # 发送请求
+        if method == 'GET':
+            response = requests.get(url, params=payload, headers=headers, timeout=timeout)
+        elif method == 'POST':
+            response = requests.post(url, json=payload, headers=headers, timeout=timeout)
+        elif method == 'PUT':
+            response = requests.put(url, json=payload, headers=headers, timeout=timeout)
+        else:
+            print(f"❌ 不支持的 HTTP 方法: {method}")
+            return False
+        
+        if response.status_code in [200, 201, 202, 204]:
+            print("✅ 验证码已发送")
+            
+            # 等待用户输入验证码
+            print("📱 请检查您的通知应用，然后输入收到的6位验证码:")
+            user_input = input("验证码 (6位数字):")
+            
+            if user_input.strip() == verification_code:
+                print("✅ 验证码正确！自定义Webhook推送功能正常工作")
+                return True
+            else:
+                print(f"❌ 验证码错误。期望: {verification_code}，实际: {user_input.strip()}")
+                return False
+        else:
+            print(f"❌ 自定义webhook发送失败，状态码: {response.status_code}")
+            print(f"响应内容: {response.text[:200]}...")
+            return False
+            
+    except requests.exceptions.Timeout:
+        print("❌ 请求超时，请检查网络连接和webhook服务器状态")
+        return False
+    except requests.exceptions.ConnectionError:
+        print("❌ 连接失败，请检查网络连接和webhook服务器地址")
+        return False
+    except Exception as e:
+        print(f"❌ 发送自定义webhook请求失败: {e}")
         return False
 
 def main():

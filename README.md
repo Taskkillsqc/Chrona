@@ -25,10 +25,10 @@ Chrona 是一个基于 LLM 的智能日程提醒助手。
 - 🔄 **自动同步**: 每 10 分钟通过 CalDAV 获取接下来 1 小时的日程
 - 🤖 **AI 分析**: 使用 Gemini/DeepSeek API 智能分析日程重要性和提醒需求
 - 💾 **数据存储**: 本地 SQLite 数据库存储分析结果
-- 📱 **智能通知**: 通过 Webhook 发送个性化提醒通知
+- 📱 **智能通知**: 通过 Webhook 发送个性化提醒通知，支持 Gotify、Slack、通用和完全自定义格式
 - 🐳 **容器化部署**: 支持 Docker 和 docker-compose 部署
 - 🔧 **灵活配置**: 支持多种 AI 模型和 CalDAV 服务
-- � **多日历支持**: 自动识别和显示事件来源日历名称（如 iCloud 小日历）
+- 🗂️ **多日历支持**: 自动识别和显示事件来源日历名称（如 iCloud 小日历）
 - �💗 **心跳包监控**: 定期向 Uptime Kuma 等监控服务发送状态更新
 - 🌐 **REST API**: 完整的 API 接口支持远程监控和控制
 - 📊 **实时状态**: 自动生成 API 文档，支持实时查看程序状态
@@ -65,15 +65,26 @@ Chrona 是一个基于 LLM 的智能日程提醒助手。
    
    编辑 `config.yaml`：
    ```yaml
-   model: gemini     # gemini 或 deepseek
-   api_key: "your-api-key-here"
+   # LLM 配置 (V3.0 新格式)
+   llm:
+     provider: "gemini"  # gemini, deepseek, openai, custom
+     api_key: "your-api-key-here"
+     parameters:
+       temperature: 0.7
+       max_tokens: 1000
+   
+   # CalDAV 配置
    caldav:
      url: "https://caldav.icloud.com"
      username: "your-icloud@example.com"
      password: "your-app-specific-password"
+   
+   # 数据库配置
    database: "./data/agent.db"
+   
+   # Webhook 通知配置
    webhook_url: "https://your.webhook.endpoint"
-   webhook_type: "gotify"  # gotify, slack, or generic
+   webhook_type: "gotify"  # gotify, slack, generic, or custom
    
    # 心跳包配置（可选）
    heartbeat:
@@ -112,7 +123,7 @@ Chrona 是一个基于 LLM 的智能日程提醒助手。
    - ✅ 所有必要文件是否存在
    - ✅ Python 依赖是否已安装
    - ✅ 配置文件是否正确
-   - ✅ Webhook 推送功能是否正常（支持 Gotify、Slack、通用格式）
+   - ✅ Webhook 推送功能是否正常（支持 Gotify、Slack、通用、自定义格式）
    - ✅ 心跳包功能是否可用
    - ✅ API 功能是否正常
 
@@ -240,11 +251,15 @@ python check.py
 
 | 配置项 | 说明 | 示例 |
 |--------|------|------|
-| `model` | AI 模型选择 | `gemini` 或 `deepseek` |
-| `api_key` | API 密钥 | `your-api-key` |
+| `llm.provider` | LLM 提供商 | `gemini`、`deepseek`、`openai`、`custom` |
+| `llm.api_key` | API 密钥 | `your-api-key` |
+| `llm.parameters.temperature` | 创造性参数 | `0.7` |
+| `llm.parameters.max_tokens` | 最大令牌数 | `1000` |
 | `database` | 数据库路径 | `./data/agent.db` |
 | `webhook_url` | 通知 Webhook 地址 | `https://api.example.com/webhook` |
-| `webhook_type` | Webhook 类型 | `gotify`、`slack` 或 `generic` |
+| `webhook_type` | Webhook 类型 | `gotify`、`slack`、`generic` 或 `custom` |
+
+**向后兼容：** 仍支持旧格式 `model` 和 `api_key`，但建议使用新的 `llm` 配置块。
 
 ### 心跳包配置
 
@@ -353,9 +368,149 @@ webhook_type: "slack"
 - 支持富文本格式
 - 结构化信息展示
 
+#### 自定义 Webhook 🆕
+
+完全自定义的 Webhook 格式，适用于任何第三方服务。
+
+**配置示例：**
+```yaml
+webhook_type: "custom"
+webhook_custom:
+  enabled: true
+  url: "https://your-custom-api.com/notifications"
+  method: "POST"  # 支持 GET, POST, PUT
+  timeout: 30
+  headers:
+    Authorization: "Bearer your-api-token"
+    Content-Type: "application/json"
+    X-Custom-Header: "custom-value"
+  payload_template: |
+    {
+      "alert": {
+        "title": {{title}},
+        "message": {{body}},
+        "timestamp": {{timestamp}},
+        "priority": {{priority}},
+        "event": {
+          "summary": {{event.summary}},
+          "start_time": {{event.start_time}},
+          "calendar": {{event.calendar_name}},
+          "duration": {{event.duration_minutes}}
+        },
+        "analysis": {
+          "important": {{analysis.important}},
+          "reason": {{analysis.reason}}
+        }
+      }
+    }
+```
+
+**特性：**
+- **完全自定义请求格式**：支持任意 JSON 结构
+- **模板变量系统**：使用 `{{variable}}` 格式动态插入数据
+- **多种 HTTP 方法**：支持 GET、POST、PUT 请求
+- **自定义请求头**：支持认证、内容类型等任意请求头
+- **灵活的数据映射**：可访问事件和 AI 分析的所有字段
+
+**可用变量：**
+
+完整的模板变量系统，支持嵌套访问：
+
+**基础变量：**
+- `{{title}}` - 通知标题
+- `{{body}}` - 通知内容
+- `{{timestamp}}` - 时间戳
+- `{{priority}}` - 优先级（数字）
+- `{{event.summary}}` - 事件标题
+- `{{event.description}}` - 事件描述
+- `{{event.start_time}}` - 开始时间
+- `{{event.calendar_name}}` - 日历名称
+- `{{event.duration_minutes}}` - 持续时间（分钟）
+- `{{analysis.important}}` - 是否重要（true/false）
+- `{{analysis.need_remind}}` - 是否需要提醒
+- `{{analysis.reason}}` - AI 分析原因
+- `{{analysis.task}}` - 任务描述
+
+**事件详细信息：**
+- `{{event.end_time}}` - 结束时间
+- `{{event.location}}` - 事件地点（如果有）
+- `{{event.organizer}}` - 组织者信息（如果有）
+- `{{event.uid}}` - 事件唯一标识符
+
+**系统信息：**
+- `{{system.hostname}}` - 主机名
+- `{{system.timestamp_iso}}` - ISO 格式时间戳
+
+**使用示例：**
+
+```yaml
+# Discord Webhook 示例
+webhook_custom:
+  url: "https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN"
+  method: "POST"
+  headers:
+    Content-Type: "application/json"
+  payload_template: |
+    {
+      "embeds": [{
+        "title": "📅 日程提醒",
+        "description": {{event.summary}},
+        "color": 3447003,
+        "fields": [
+          {
+            "name": "⏰ 开始时间",
+            "value": {{event.start_time}},
+            "inline": true
+          },
+          {
+            "name": "🗂️ 日历",
+            "value": {{event.calendar_name}},
+            "inline": true
+          },
+          {
+            "name": "🎯 任务",
+            "value": {{analysis.task}},
+            "inline": false
+          }
+        ],
+        "timestamp": {{system.timestamp_iso}}
+      }]
+    }
+
+# 企业微信群机器人示例
+webhook_custom:
+  url: "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=YOUR_KEY"
+  method: "POST"
+  headers:
+    Content-Type: "application/json"
+  payload_template: |
+    {
+      "msgtype": "markdown",
+      "markdown": {
+        "content": "## 📅 日程提醒\n\n> **事件**: {{event.summary}}\n> **时间**: {{event.start_time}}\n> **日历**: {{event.calendar_name}}\n> **重要**: {{analysis.important}}\n> **任务**: {{analysis.task}}"
+      }
+    }
+
+# 钉钉群机器人示例
+webhook_custom:
+  url: "https://oapi.dingtalk.com/robot/send?access_token=YOUR_TOKEN"
+  method: "POST"
+  headers:
+    Content-Type: "application/json"
+  payload_template: |
+    {
+      "msgtype": "actionCard",
+      "actionCard": {
+        "title": "📅 {{event.summary}}",
+        "text": "### 日程提醒\n\n**事件**: {{event.summary}}\n\n**时间**: {{event.start_time}}\n\n**日历**: {{event.calendar_name}}\n\n**重要程度**: {{analysis.important}}\n\n**建议任务**: {{analysis.task}}",
+        "btnOrientation": "0"
+      }
+    }
+```
+
 #### 通用 Webhook
 
-适用于自定义或其他通知服务。
+适用于简单的自定义通知服务。
 
 **配置示例：**
 ```yaml
@@ -585,7 +740,7 @@ curl -X POST http://localhost:8000/heartbeat/send
 ```json
 {
   "title": "📅 日程提醒: 项目评审会议",
-  "message": "⏰ 开始时间: 2025-06-19 14:00:00\n⏰ 结束时间: 2025-06-19 15:30:00\n⏱️ 持续时间: 1小时30分钟\n� 日历: 工作日历\n�📝 描述: 讨论Q2项目进展和下阶段计划\n🎯 任务: 参加项目评审会议\n⭐ 重要程度: 高\n⏱️ 建议提前: 15分钟\n💭 分析: 基于工作日历判断，这是重要的工作会议",
+  "message": "⏰ 开始时间: 2025-06-19 14:00:00\n⏰ 结束时间: 2025-06-19 15:30:00\n⏱️ 持续时间: 1小时30分钟\n🗂️ 日历: 工作日历\n📝 描述: 讨论Q2项目进展和下阶段计划\n🎯 任务: 参加项目评审会议\n⭐ 重要程度: 高\n⏱️ 建议提前: 15分钟\n💭 分析: 基于工作日历判断，这是重要的工作会议",
   "priority": 8,
   "extras": {
     "client::display": {
@@ -941,101 +1096,3 @@ MIT License
 ---
 
 **🎉 Chrona v2.0 - 让您的日程管理更智能、更可靠！**
-
-## 🚀 v3.0 LLM 配置快速指南
-
-### 🤖 支持的 LLM提供商
-
-#### 1. Gemini（Google）
-```yaml
-llm:
-  provider: "gemini"
-  api_key: "your-gemini-api-key"
-  parameters:
-    temperature: 0.7
-    max_tokens: 1000
-    top_p: 0.9
-```
-
-#### 2. DeepSeek
-```yaml
-llm:
-  provider: "deepseek"
-  api_key: "your-deepseek-api-key"
-  parameters:
-    temperature: 0.7
-    max_tokens: 1000
-```
-
-#### 3. OpenAI
-```yaml
-llm:
-  provider: "openai"
-  api_key: "your-openai-api-key"
-  parameters:
-    temperature: 0.7
-    max_tokens: 1000
-    top_p: 0.9
-```
-
-#### 4. 自定义 API（兼容 OpenAI 格式）
-```yaml
-llm:
-  provider: "custom"
-  custom:
-    enabled: true
-    url: "https://your-custom-api.com/v1/chat/completions"
-    model: "your-model-name"
-    headers:
-      Authorization: "Bearer your-api-key"
-    payload_format: "openai"  # 或 "custom"
-    response_format: "openai"  # 或 "custom"
-    timeout: 30
-  parameters:
-    temperature: 0.7
-    max_tokens: 1000
-    top_p: 0.9
-```
-
-### 🔧 高级配置示例
-
-#### 使用本地 Ollama
-```yaml
-llm:
-  provider: "custom"
-  custom:
-    enabled: true
-    url: "http://localhost:11434/v1/chat/completions"
-    model: "llama2"
-    headers: {}
-    payload_format: "openai"
-    response_format: "openai"
-  parameters:
-    temperature: 0.7
-    max_tokens: 1000
-```
-
-#### 使用其他兼容服务
-```yaml
-llm:
-  provider: "custom"
-  custom:
-    enabled: true
-    url: "https://api.anthropic.com/v1/messages"
-    model: "claude-3-sonnet-20240229"
-    headers:
-      Authorization: "Bearer your-anthropic-key"
-      anthropic-version: "2023-06-01"
-    payload_format: "custom"
-    response_format: "custom"
-```
-
-### 🔄 向后兼容配置
-
-如果你使用的是 v2.x 配置，无需修改：
-```yaml
-model: gemini  # 仍然支持
-api_key: "your-api-key-here"
-```
-
-新的 v3.0 会自动将其转换为新格式。

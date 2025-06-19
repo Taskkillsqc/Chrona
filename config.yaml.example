@@ -48,7 +48,41 @@ database: "./data/agent.db"  # SQLite 数据库文件路径
 
 # Webhook 通知配置
 webhook_url: "https://your-notification-service.com/webhook"  # 通知服务 URL
-webhook_type: "gotify"  # 通知类型: gotify, slack, generic
+webhook_type: "gotify"  # 通知类型: gotify, slack, generic, custom
+
+# 自定义 Webhook 配置（当 webhook_type 为 custom 时启用）
+webhook_custom:
+  enabled: false  # 是否启用自定义 webhook
+  url: "https://your-custom-webhook.com/api/notify"  # 自定义 webhook URL
+  method: "POST"  # HTTP 方法: GET, POST, PUT
+  timeout: 30  # 请求超时时间（秒）
+  headers:  # 自定义请求头
+    Authorization: "Bearer your-api-token"
+    Content-Type: "application/json"
+    X-Custom-Header: "custom-value"
+  # JSON 模板，支持变量替换
+  payload_template: |
+    {
+      "notification": {
+        "title": {{title}},
+        "message": {{body}},
+        "timestamp": {{timestamp}},
+        "priority": {{priority}},
+        "event": {
+          "summary": {{event.summary}},
+          "description": {{event.description}},
+          "start_time": {{event.start_time}},
+          "calendar": {{event.calendar_name}},
+          "duration": {{event.duration_minutes}}
+        },
+        "analysis": {
+          "important": {{analysis.important}},
+          "need_remind": {{analysis.need_remind}},
+          "reason": {{analysis.reason}},
+          "task": {{analysis.task}}
+        }
+      }
+    }
 
 # ============================================
 # 高级配置
