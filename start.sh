@@ -37,18 +37,35 @@ if [ ! -d "data" ]; then
     mkdir -p data
 fi
 
+# 检查并创建虚拟环境
+VENV_DIR="venv"
+if [ ! -d "$VENV_DIR" ]; then
+    echo "🔧 创建虚拟环境..."
+    python3 -m venv "$VENV_DIR"
+    echo "✅ 虚拟环境创建完成"
+fi
+
+# 激活虚拟环境
+echo "🔄 激活虚拟环境..."
+source "$VENV_DIR/bin/activate"
+echo "✅ 虚拟环境已激活"
+
+# 升级pip
+echo "📦 升级pip..."
+python -m pip install --upgrade pip
+
 # 检查依赖
-echo "🔍 检查 Python 依赖..."
+echo "🔍 安装 Python 依赖..."
 if [ -f "requirements.txt" ]; then
-    python3 -m pip install -r requirements.txt
+    python -m pip install -r requirements.txt
 else
     echo "⚠️  requirements.txt 不存在，手动安装依赖..."
-    python3 -m pip install caldav PyYAML requests vobject pytz
+    python -m pip install caldav PyYAML requests vobject pytz fastapi uvicorn pydantic
 fi
 
 # 验证配置
 echo "✅ 验证配置文件..."
-python3 -c "
+python -c "
 import yaml
 try:
     with open('config.yaml', 'r') as f:
@@ -84,7 +101,7 @@ fi
 echo ""
 echo "🎯 准备启动 Dummy Schedule Manager..."
 echo "📊 当前配置："
-python3 -c "
+python -c "
 import yaml
 with open('config.yaml', 'r') as f:
     config = yaml.safe_load(f)
@@ -96,8 +113,9 @@ print(f\"  Webhook: {config.get('webhook_url', 'unknown')[:50]}{'...' if len(con
 
 echo ""
 echo "🚀 启动程序..."
-echo "使用 Ctrl+C 停止程序"
+echo "💡 使用 Ctrl+C 停止程序"
+echo "🔧 虚拟环境: $VENV_DIR"
 echo ""
 
 # 启动主程序
-python3 agent.py
+python agent.py
