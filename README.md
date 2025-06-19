@@ -127,7 +127,7 @@ Chrona 是一个基于 Gemini API（可切换为 DeepSeek API）的智能日程�
    
    # 运行容器
    docker run -d \
-     --name dummy_schedule_manager \
+     --name chrona \
      -v $(pwd)/data:/app/data \
      -v $(pwd)/config.yaml:/app/config.yaml:ro \
      Chrona

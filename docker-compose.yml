@@ -3,7 +3,7 @@ version: '3.9'
 services:
   Chrona:
     build: .
-    container_name: dummy_schedule_manager
+    container_name: chrona
     restart: unless-stopped
     volumes:
       - ./data:/app/data
