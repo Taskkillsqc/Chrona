@@ -24,11 +24,24 @@ def init_db(path):
         summary TEXT,
         description TEXT,
         start_time TEXT,
+        end_time TEXT,
+        duration_minutes INTEGER,
         result TEXT,
         reminded INTEGER DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )''')
+    
+    # 添加新字段到现有表（如果表已存在）
+    try:
+        c.execute('ALTER TABLE events ADD COLUMN end_time TEXT')
+    except sqlite3.OperationalError:
+        pass  # 字段已存在
+    
+    try:
+        c.execute('ALTER TABLE events ADD COLUMN duration_minutes INTEGER')
+    except sqlite3.OperationalError:
+        pass  # 字段已存在
     
     # 创建提醒记录表
     c.execute('''CREATE TABLE IF NOT EXISTS reminders (
@@ -54,13 +67,15 @@ def save_event_analysis(event, result):
         # 使用REPLACE确保同一个事件不会重复插入
         c.execute("""
             INSERT OR REPLACE INTO events 
-            (uid, summary, description, start_time, result, updated_at) 
-            VALUES (?, ?, ?, ?, ?, ?)
+            (uid, summary, description, start_time, end_time, duration_minutes, result, updated_at) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             event.get('uid', ''),
             event.get('summary', ''),
             event.get('description', ''),
             event.get('start', ''),
+            event.get('end', ''),
+            event.get('duration_minutes'),
             json.dumps(result, ensure_ascii=False),
             datetime.now().isoformat()
         ))
@@ -80,7 +95,7 @@ def get_events_to_remind():
     try:
         c = conn.cursor()
         c.execute("""
-            SELECT id, uid, summary, description, start_time, result 
+            SELECT id, uid, summary, description, start_time, end_time, duration_minutes, result 
             FROM events 
             WHERE reminded = 0 
             AND json_extract(result, '$.need_remind') = 1
@@ -90,13 +105,15 @@ def get_events_to_remind():
         events = []
         for row in c.fetchall():
             try:
-                result = json.loads(row[5])
+                result = json.loads(row[7])
                 events.append({
                     'id': row[0],
                     'uid': row[1],
                     'summary': row[2],
                     'description': row[3],
                     'start_time': row[4],
+                    'end_time': row[5],
+                    'duration_minutes': row[6],
                     'result': result
                 })
             except json.JSONDecodeError:
@@ -185,3 +202,41 @@ def cleanup_old_events(days=7):
     except Exception as e:
         print(f"清理旧事件失败: {e}")
         return False
+
+def get_recent_events(limit=10):
+    """获取最近的事件记录"""
+    if not conn:
+        return []
+    
+    try:
+        c = conn.cursor()
+        c.execute("""
+            SELECT id, uid, summary, description, start_time, end_time, 
+                   duration_minutes, result, reminded, created_at, updated_at
+            FROM events 
+            ORDER BY created_at DESC 
+            LIMIT ?
+        """, (limit,))
+        
+        events = []
+        for row in c.fetchall():
+            event = {
+                'id': row[0],
+                'uid': row[1],
+                'summary': row[2],
+                'description': row[3],
+                'start_time': row[4],
+                'end_time': row[5],
+                'duration_minutes': row[6],
+                'result': json.loads(row[7]) if row[7] else {},
+                'reminded': row[8],
+                'created_at': row[9],
+                'updated_at': row[10]
+            }
+            events.append(event)
+        
+        return events
+        
+    except Exception as e:
+        print(f"获取最近事件失败: {e}")
+        return []

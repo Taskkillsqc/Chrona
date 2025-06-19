@@ -112,7 +112,19 @@ def format_notification_body(event, result):
     
     # 基本信息
     if event.get('start_time'):
-        lines.append(f"⏰ 时间: {event['start_time']}")
+        lines.append(f"⏰ 开始时间: {event['start_time']}")
+    
+    if event.get('end_time'):
+        lines.append(f"⏰ 结束时间: {event['end_time']}")
+    
+    if event.get('duration_minutes'):
+        duration = event['duration_minutes']
+        hours = duration // 60
+        minutes = duration % 60
+        if hours > 0:
+            lines.append(f"⏱️ 持续时间: {hours}小时{minutes}分钟")
+        else:
+            lines.append(f"⏱️ 持续时间: {minutes}分钟")
     
     if event.get('description'):
         lines.append(f"📝 描述: {event['description']}")

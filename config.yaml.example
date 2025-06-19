@@ -1,18 +1,112 @@
-model: gemini     # gemini or deepseek
-api_key: "your-api-key-here"
+# Dummy Schedule Manager 完整配置示例
+# 复制此文件为 config.yaml 并填入您的真实配置信息
 
+# ============================================
+# 基础配置
+# ============================================
+
+model: gemini     # AI模型选择: gemini 或 deepseek
+api_key: "your-api-key-here"  # 从 Google AI Studio 或 DeepSeek 控制台获取
+
+# CalDAV 服务配置
 caldav:
-  url: "https://caldav.icloud.com"  # iCloud CalDAV URL
-  username: "your-icloud@example.com"
-  password: "your-app-specific-password"  # 使用应用专用密码
+  url: "https://caldav.icloud.com"  # CalDAV 服务器地址
+  username: "your-email@example.com"  # 您的邮箱地址
+  password: "your-app-specific-password"  # 应用专用密码（推荐）
 
-database: "./data/agent.db"
-webhook_url: "http://66.117.9.76:8080/message?token=YOUR_GOTIFY_TOKEN"  # Gotify webhook URL
-webhook_type: "gotify"  # gotify, slack, or generic
+# 数据存储配置
+database: "./data/agent.db"  # SQLite 数据库文件路径
 
-# 可选配置
+# Webhook 通知配置
+webhook_url: "https://your-notification-service.com/webhook"  # 通知服务 URL
+webhook_type: "gotify"  # 通知类型: gotify, slack, generic
+
+# ============================================
+# 高级配置
+# ============================================
+
+# 运行时设置
 settings:
-  fetch_interval: 600  # 获取日程间隔（秒）
-  remind_check_interval: 60  # 检查提醒间隔（秒）
+  fetch_interval: 600  # 获取日程间隔（秒，默认10分钟）
+  remind_check_interval: 60  # 检查提醒间隔（秒，默认1分钟）
   cleanup_days: 7  # 清理多少天前的旧记录
   timezone: "Asia/Shanghai"  # 时区设置
+
+# 心跳包监控配置（用于 Uptime Kuma 等监控服务）
+heartbeat:
+  enabled: true  # 是否启用心跳包功能
+  url: "https://your-uptime-kuma.com/api/push/your-push-token"  # 心跳包推送URL
+  interval: 60  # 心跳包发送间隔（秒，推荐60-300秒）
+  timeout: 10  # 请求超时时间（秒）
+  # 可选参数（根据监控服务要求调整）
+  params:
+    status: "up"  # 状态参数: up, down, ping
+    msg: "Schedule Manager is running"  # 自定义消息
+    ping: ""  # ping值（可选，单位毫秒）
+
+# REST API 服务配置
+api:
+  enabled: true  # 是否启用API服务
+  host: "0.0.0.0"  # 监听地址（0.0.0.0=所有接口，127.0.0.1=仅本地）
+  port: 8000  # 监听端口
+
+# ============================================
+# 配置说明和示例
+# ============================================
+
+# CalDAV 服务器配置示例：
+# - iCloud: https://caldav.icloud.com
+# - Google Calendar: https://apidata.googleusercontent.com/caldav/v2/
+# - Outlook: https://outlook.live.com/owa/
+# - Yahoo: https://caldav.calendar.yahoo.com
+
+# Webhook 通知服务配置示例：
+# Gotify: https://your-gotify.com/message?token=your-app-token
+# Slack: https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK
+# 通用: https://your-custom-webhook.com/notify
+
+# ============================================
+# 心跳包监控服务配置示例
+# ============================================
+# 
+# Uptime Kuma Push 监控：
+# 1. 在 Uptime Kuma 中创建新的 Push 监控
+# 2. 复制推送URL: https://your-uptime-kuma.com/api/push/AbCdEf123
+# 3. 可选参数: ?status=up&msg=OK&ping=10
+#
+# 其他监控服务：
+# - Healthchecks.io: https://hc-ping.com/your-uuid-here
+# - StatusCake: https://push.statuscake.com/?PK=your-key&TestID=your-test-id
+# - 自定义HTTP端点: https://your-monitor.com/webhook
+#
+# ============================================
+# API接口说明
+# ============================================
+#
+# 启用API服务后，可通过以下接口进行操作：
+#
+# 基础接口：
+# - GET /                     # 根路径，返回基本信息
+# - GET /health              # 健康检查
+# - GET /config              # 获取配置信息（隐藏敏感信息）
+#
+# 统计接口：
+# - GET /stats               # 获取统计信息和心跳包状态
+#
+# 事件接口：
+# - GET /events/upcoming     # 获取即将到来的事件
+# - GET /events/recent       # 获取最近的事件记录
+# - GET /events/reminders    # 获取需要提醒的事件
+#
+# 心跳包接口：
+# - GET /heartbeat/status    # 获取心跳包发送状态
+# - POST /heartbeat/send     # 手动发送心跳包
+#
+# 代理操作接口：
+# - POST /agent/fetch        # 手动触发事件获取和分析
+# - POST /agent/check-reminders  # 手动触发提醒检查
+#
+# API文档：
+# - http://localhost:8000/docs    # Swagger UI 文档
+# - http://localhost:8000/redoc   # ReDoc 文档
+#

@@ -21,6 +21,8 @@ from caldav_client.caldav_client import get_upcoming_events
 from ai.LLM_agent import analyze_event
 from memory.database import init_db, save_event_analysis, get_events_to_remind, mark_reminded, get_stats, cleanup_old_events
 from notifier.webhook import send_notification, send_test_notification
+from heartbeat.heartbeat import HeartbeatSender
+from api.api_server import APIServer
 from config import CONFIG
 
 # 配置常量
@@ -35,6 +37,12 @@ class CalendarAgent:
         self.running = True
         self.last_fetch_time = None
         self.last_remind_check = None
+        
+        # 初始化心跳包发送器
+        self.heartbeat_sender = HeartbeatSender(CONFIG)
+        
+        # 初始化API服务器
+        self.api_server = APIServer(CONFIG, calendar_agent=self, heartbeat_sender=self.heartbeat_sender)
         
         # 注册信号处理器，用于优雅关闭
         signal.signal(signal.SIGINT, self.signal_handler)
@@ -60,6 +68,15 @@ class CalendarAgent:
         """处理关闭信号"""
         print(f"\n收到信号 {signum}，正在优雅关闭...")
         self.running = False
+        
+        # 发送关闭状态的心跳包
+        if self.heartbeat_sender:
+            self.heartbeat_sender.send_status_update("down", "Schedule Manager is shutting down")
+            self.heartbeat_sender.stop()
+        
+        # 停止API服务器
+        if self.api_server:
+            self.api_server.stop()
     
     def fetch_and_analyze_events(self):
         """获取并分析日程事件"""
@@ -73,18 +90,26 @@ class CalendarAgent:
                 print("📭 暂无即将到来的日程")
                 return
             
-            print(f"📅 发现 {len(events)} 个即将到来的事件")
-            
-            # 分析每个事件
+            print(f"📅 发现 {len(events)} 个即将到来的事件")                # 分析每个事件
             for i, event in enumerate(events, 1):
                 print(f"  🔍 分析事件 {i}/{len(events)}: {event.get('summary', '无标题')}")
                 print(f"      时间: {event.get('start', '未知')}")
+                if event.get('duration_minutes'):
+                    print(f"      时长: {event.get('duration_minutes')}分钟")
                 
-                # 调用AI分析
+                # 获取当前时间
+                china_tz = pytz.timezone('Asia/Shanghai')
+                current_time = datetime.now(china_tz).strftime('%Y-%m-%d %H:%M:%S')
+                
+                # 调用AI分析，传递时间信息
                 result = analyze_event(
                     event.get('summary', ''), 
                     event.get('description', ''), 
-                    CONFIG
+                    CONFIG,
+                    start_time=event.get('start', ''),
+                    end_time=event.get('end', ''),
+                    duration_minutes=event.get('duration_minutes'),
+                    current_time=current_time
                 )
                 
                 if 'error' in result:
@@ -201,6 +226,15 @@ class CalendarAgent:
             print(f"❌ 数据库初始化失败: {e}")
             return
         
+        # 启动心跳包发送器
+        self.heartbeat_sender.start()
+        
+        # 启动API服务器
+        self.api_server.start()
+        
+        # 发送启动状态的心跳包
+        self.heartbeat_sender.send_status_update("up", "Schedule Manager started successfully")
+        
         # 发送测试通知（可选）
         if CONFIG.get('webhook_url') and CONFIG['webhook_url'] != "https://your.gitify.endpoint/webhook":
             print("\n🧪 发送测试通知...")
@@ -247,7 +281,16 @@ class CalendarAgent:
                 break
             except Exception as e:
                 print(f"❌ 主循环出现错误: {e}")
+                # 发送错误状态的心跳包
+                self.heartbeat_sender.send_status_update("down", f"Error in main loop: {str(e)}")
                 time.sleep(60)  # 出错后等待1分钟再继续
+        
+        # 发送关闭状态的心跳包
+        self.heartbeat_sender.send_status_update("down", "Schedule Manager stopped")
+        
+        # 停止服务
+        self.heartbeat_sender.stop()
+        self.api_server.stop()
         
         print("\n👋 Dummy Schedule Manager 已停止")
 
@@ -269,6 +312,28 @@ def main():
     if CONFIG['api_key'] == 'your-api-key-here':
         print("❌ 请在config.yaml中设置正确的API密钥")
         sys.exit(1)
+    
+    # 显示功能状态
+    print("\n🔧 功能状态:")
+    
+    # 心跳包功能状态
+    heartbeat_config = CONFIG.get('heartbeat', {})
+    if heartbeat_config.get('enabled', False) and heartbeat_config.get('url'):
+        print(f"💗 心跳包: 已启用 (间隔: {heartbeat_config.get('interval', 60)}秒)")
+        print(f"   目标: {heartbeat_config.get('url')}")
+    else:
+        print("💗 心跳包: 未启用")
+    
+    # API服务状态
+    api_config = CONFIG.get('api', {})
+    if api_config.get('enabled', False):
+        host = api_config.get('host', '0.0.0.0')
+        port = api_config.get('port', 8000)
+        print(f"🌐 API服务: 已启用")
+        print(f"   地址: http://{host}:{port}")
+        print(f"   文档: http://{host}:{port}/docs")
+    else:
+        print("🌐 API服务: 未启用")
     
     # 启动代理
     agent = CalendarAgent()

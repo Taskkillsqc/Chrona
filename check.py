@@ -34,7 +34,11 @@ def check_files():
         'memory/__init__.py',
         'memory/database.py',
         'notifier/__init__.py',
-        'notifier/webhook.py'
+        'notifier/webhook.py',
+        'heartbeat/__init__.py',
+        'heartbeat/heartbeat.py',
+        'api/__init__.py',
+        'api/api_server.py'
     ]
     
     missing_files = []
@@ -65,8 +69,14 @@ def check_dependencies():
         for req in requirements:
             if req.strip():
                 package = req.split('==')[0].strip()
-                # 特殊处理PyYAML
-                import_name = 'yaml' if package == 'PyYAML' else package.replace('-', '_')
+                # 特殊处理一些包名
+                if package == 'PyYAML':
+                    import_name = 'yaml'
+                elif package == 'uvicorn[standard]':
+                    import_name = 'uvicorn'
+                else:
+                    import_name = package.replace('-', '_')
+                
                 try:
                     __import__(import_name)
                     print(f"  ✅ {package}")
@@ -101,7 +111,7 @@ def check_configuration():
     
     try:
         import yaml
-        with open('config.yaml', 'r') as f:
+        with open('config.yaml', 'r', encoding='utf-8') as f:
             config = yaml.safe_load(f)
         
         required_keys = ['model', 'api_key', 'caldav', 'database', 'webhook_url']
@@ -119,6 +129,26 @@ def check_configuration():
         
         if webhook_type not in ['gotify', 'slack', 'generic']:
             print(f"  ⚠️  不支持的 webhook_type: {webhook_type}，将使用 generic 格式")
+        
+        # 检查新功能配置
+        heartbeat_config = config.get('heartbeat', {})
+        if heartbeat_config.get('enabled', False):
+            print(f"  ✅ heartbeat (已启用)")
+            if heartbeat_config.get('url'):
+                print(f"    📡 心跳包URL已配置")
+            else:
+                print(f"    ⚠️  心跳包已启用但未配置URL")
+        else:
+            print(f"  ✅ heartbeat (未启用)")
+        
+        api_config = config.get('api', {})
+        if api_config.get('enabled', False):
+            print(f"  ✅ api (已启用)")
+            host = api_config.get('host', '0.0.0.0')
+            port = api_config.get('port', 8000)
+            print(f"    🌐 API地址: http://{host}:{port}")
+        else:
+            print(f"  ✅ api (未启用)")
         
         if missing_keys:
             print(f"\n❌ 配置文件缺少字段:")
@@ -216,8 +246,7 @@ def check_webhook_push():
     """检查Webhook推送功能（支持不同类型）"""
     print("\n📱 检查Webhook推送功能...")
     
-    try:
-        # 加载配置
+    try:        # 加载配置
         with open('config.yaml', 'r', encoding='utf-8') as f:
             config = yaml.safe_load(f)
         
@@ -366,6 +395,160 @@ def show_usage_instructions():
     print("   ./stop.sh")
     print("   # Docker运行:")
     print("   docker-compose down")
+    
+    print("\n5. 新功能使用:")
+    print("   # 心跳包监控 - 在config.yaml中配置")
+    print("   heartbeat:")
+    print("     enabled: true")
+    print("     url: 'https://uptime-kuma.example.com/api/push/xxxxx'")
+    print("   ")
+    print("   # API接口 - 启动后访问")
+    print("   http://localhost:8000/docs  # API文档")
+    print("   http://localhost:8000/health  # 健康检查")
+    print("   ")
+    print("   # 功能测试脚本")
+    print("   python quick_test.py  # 快速测试")
+    
+    print("\n💡 更多信息:")
+    print("   - 查看 FEATURES.md 了解新功能详情")
+    print("   - 查看 QUICKSTART.md 快速入门指南")
+    print("   - 查看 config.yaml.full-example 完整配置示例")
+
+def check_heartbeat_functionality():
+    """检查心跳包功能"""
+    print("\n💗 检查心跳包功能...")
+    
+    try:
+        # 检查心跳包模块是否可以导入
+        try:
+            from heartbeat.heartbeat import HeartbeatSender
+            print("  ✅ 心跳包模块导入成功")
+        except ImportError as e:
+            print(f"  ❌ 心跳包模块导入失败: {e}")
+            return False
+        
+        # 创建测试配置
+        test_config = {
+            'heartbeat': {
+                'enabled': True,
+                'url': 'https://httpbin.org/get',  # 使用httpbin作为测试端点
+                'interval': 5,
+                'timeout': 10,
+                'params': {
+                    'status': 'up',
+                    'msg': 'Test heartbeat from Schedule Manager',
+                    'ping': '10'
+                }
+            }
+        }
+        
+        # 创建心跳包发送器
+        heartbeat = HeartbeatSender(test_config)
+        print("  ✅ 心跳包发送器创建成功")
+        
+        # 测试单次发送
+        print("  📡 测试心跳包发送...")
+        success = heartbeat.send_heartbeat()
+        if success:
+            print("  ✅ 心跳包发送成功")
+        else:
+            print("  ❌ 心跳包发送失败")
+            return False
+        
+        # 获取状态
+        status = heartbeat.get_status()
+        print(f"  📊 发送次数: {status['send_count']}, 错误次数: {status['error_count']}")
+        
+        # 测试自定义参数
+        print("  📡 测试自定义参数...")
+        success = heartbeat.send_heartbeat(status='down', msg='Custom test message', ping='20')
+        if success:
+            print("  ✅ 自定义参数心跳包发送成功")
+        else:
+            print("  ❌ 自定义参数心跳包发送失败")
+        
+        print("✅ 心跳包功能测试完成")
+        return True
+        
+    except Exception as e:
+        print(f"❌ 心跳包功能测试失败: {e}")
+        return False
+
+def check_api_functionality():
+    """检查API功能（需要服务运行）"""
+    print("\n🌐 检查API功能...")
+    
+    try:
+        # 检查API模块是否可以导入
+        try:
+            from api.api_server import APIServer
+            print("  ✅ API模块导入成功")
+        except ImportError as e:
+            print(f"  ❌ API模块导入失败: {e}")
+            return False
+        
+        # 检查FastAPI依赖
+        try:
+            import fastapi
+            import uvicorn
+            print("  ✅ FastAPI依赖检查通过")
+        except ImportError as e:
+            print(f"  ❌ FastAPI依赖缺失: {e}")
+            print("  💡 运行: pip install fastapi uvicorn[standard]")
+            return False
+        
+        base_url = "http://127.0.0.1:8000"
+        
+        # 检查服务是否运行
+        print("  🔍 检查API服务是否运行...")
+        try:
+            response = requests.get(f"{base_url}/health", timeout=3)
+            if response.status_code == 200:
+                print("  ✅ API服务正在运行")
+                
+                # 测试各个接口
+                endpoints_to_test = [
+                    ("/", "根路径"),
+                    ("/health", "健康检查"),
+                    ("/config", "配置信息"),
+                    ("/heartbeat/status", "心跳包状态")
+                ]
+                
+                all_passed = True
+                for endpoint, name in endpoints_to_test:
+                    try:
+                        response = requests.get(f"{base_url}{endpoint}", timeout=5)
+                        if response.status_code == 200:
+                            print(f"  ✅ {name}接口测试成功")
+                        else:
+                            print(f"  ❌ {name}接口测试失败，状态码: {response.status_code}")
+                            all_passed = False
+                    except Exception as e:
+                        print(f"  ❌ {name}接口测试失败: {e}")
+                        all_passed = False
+                
+                if all_passed:
+                    print("✅ API功能测试完成")
+                    return True
+                else:
+                    print("❌ 部分API接口测试失败")
+                    return False
+                    
+            else:
+                print(f"  ❌ API服务响应异常，状态码: {response.status_code}")
+                return False
+                
+        except requests.exceptions.ConnectionError:
+            print("  ⚠️  API服务未运行，跳过接口测试")
+            print("  💡 要测试API功能，请先运行: python agent.py")
+            return True  # 模块检查通过就算成功
+        except Exception as e:
+            print(f"  ❌ API服务检查失败: {e}")
+            return False
+        
+    except Exception as e:
+        print(f"❌ API功能测试失败: {e}")
+        return False
 
 def main():
     """主检查函数"""
@@ -379,6 +562,8 @@ def main():
         ("权限检查", check_permissions),
         ("Docker检查", check_docker),
         ("Webhook推送检查", check_webhook_push),
+        ("心跳包功能检查", check_heartbeat_functionality),
+        ("API功能检查", check_api_functionality),
     ]
     
     passed = 0

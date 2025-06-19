@@ -102,10 +102,28 @@ class CalDAVClient:
                             else:
                                 self.logger.info(f"  ✅ 包含未来事件: {event_summary}")
                         
+                        # 获取结束时间和计算时长
+                        event_end = None
+                        duration_minutes = None
+                        
+                        if hasattr(v, 'dtend'):
+                            event_end = v.dtend.value
+                        elif hasattr(v, 'duration'):
+                            # 如果有duration属性，计算结束时间
+                            duration = v.duration.value
+                            if isinstance(event_start, datetime) and hasattr(duration, 'total_seconds'):
+                                event_end = event_start + duration
+                        
+                        # 计算时长（分钟）
+                        if event_end and isinstance(event_start, datetime) and isinstance(event_end, datetime):
+                            duration_minutes = int((event_end - event_start).total_seconds() / 60)
+                        
                         events.append({
                             'summary': event_summary,
                             'description': str(v.description.value) if hasattr(v, 'description') else '',
                             'start': str(v.dtstart.value) if hasattr(v, 'dtstart') else '',
+                            'end': str(event_end) if event_end else '',
+                            'duration_minutes': duration_minutes,
                             'uid': str(v.uid.value) if hasattr(v, 'uid') else '',
                         })
                 except Exception as e:

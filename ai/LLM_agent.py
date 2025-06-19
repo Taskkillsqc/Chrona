@@ -2,8 +2,30 @@ import requests
 import json
 import time
 
-def analyze_event(summary, description, config):
+def analyze_event(summary, description, config, start_time=None, end_time=None, duration_minutes=None, current_time=None):
     """使用AI分析日程事件的重要性和提醒需求"""
+    from datetime import datetime
+    import pytz
+    
+    # 获取当前时间
+    if current_time is None:
+        china_tz = pytz.timezone('Asia/Shanghai')
+        current_time = datetime.now(china_tz).strftime('%Y-%m-%d %H:%M:%S')
+    
+    # 构建时间信息文本
+    time_info = ""
+    if start_time:
+        time_info += f"开始时间: {start_time}\n"
+    if end_time:
+        time_info += f"结束时间: {end_time}\n"
+    if duration_minutes:
+        hours = duration_minutes // 60
+        minutes = duration_minutes % 60
+        if hours > 0:
+            time_info += f"持续时间: {hours}小时{minutes}分钟 (共{duration_minutes}分钟)\n"
+        else:
+            time_info += f"持续时间: {minutes}分钟\n"
+    
     prompt = f"""
 你是一个智能日程助手。请分析如下日程并输出以下字段：
 - task: 事件任务（简化后的任务描述）
@@ -17,11 +39,15 @@ def analyze_event(summary, description, config):
 2. 普通的个人时间、休息时间通常不需要提醒
 3. 重要事件建议提前15-30分钟提醒
 4. 普通事件提前5-10分钟提醒
+5. 考虑事件时长：长时间事件（>=2小时）可能需要更早提醒
+6. 考虑当前时间与事件开始时间的距离来调整提醒策略
 
-请只输出JSON格式，不要包含其他文字：
-
+当前时间: {current_time}
+{time_info}
 标题: {summary}
 描述: {description}
+
+请只输出JSON格式，不要包含其他文字：
 """
 
     headers = {"Content-Type": "application/json"}
