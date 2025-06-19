@@ -213,13 +213,30 @@ class CalendarAgent:
     
     def run(self):
         """主运行循环"""
-        print("🚀 Chrona v2.0 启动")
+        print("🚀 Chrona v3.0 启动")
         print(f"📊 配置信息:")
-        print(f"  模型: {CONFIG.get('model', 'unknown')}")
-        print(f"  数据库: {CONFIG.get('database', 'unknown')}")
-        print(f"  CalDAV URL: {CONFIG.get('caldav', {}).get('url', 'unknown')}")
-        print(f"  获取间隔: {INTERVAL}秒")
-        print(f"  提醒检查间隔: {REMIND_CHECK_INTERVAL}秒")
+        
+        # 显示 LLM 配置信息
+        from ai.llm_client import LLMClient
+        llm_client = LLMClient(CONFIG)
+        llm_info = llm_client.get_provider_info()
+        
+        print(f"  🤖 LLM提供商: {llm_info['provider']}")
+        if llm_info['provider'] != 'custom':
+            print(f"  🧠 模型: {llm_info.get('model', 'default')}")
+        else:
+            print(f"  🧠 自定义模型: {llm_info.get('model', 'N/A')}")
+            print(f"  🔗 自定义URL: {llm_info.get('url', 'N/A')}")
+        
+        # 显示参数信息
+        params = llm_info.get('parameters', {})
+        if params:
+            print(f"  ⚙️ 参数: 温度={params.get('temperature', 0.7)}, 最大令牌={params.get('max_tokens', 1000)}")
+        
+        print(f"  💾 数据库: {CONFIG.get('database', 'unknown')}")
+        print(f"  📅 CalDAV URL: {CONFIG.get('caldav', {}).get('url', 'unknown')}")
+        print(f"  ⏱️ 获取间隔: {INTERVAL}秒")
+        print(f"  🔔 提醒检查间隔: {REMIND_CHECK_INTERVAL}秒")
         
         # 显示功能状态
         print(f"\n🔧 功能状态:")

@@ -1,9 +1,10 @@
 import requests
 import json
 import time
+from .llm_client import LLMClient
 
 def analyze_event(summary, description, config, start_time=None, end_time=None, duration_minutes=None, current_time=None, calendar_name=None):
-    """使用AI分析日程事件的重要性和提醒需求"""
+    """使用AI分析日程事件的重要性和提醒需求 - V3版本"""
     from datetime import datetime
     import pytz
     
@@ -64,37 +65,18 @@ def analyze_event(summary, description, config, start_time=None, end_time=None, 
 请只输出JSON格式，不要包含其他文字：
 """
 
-    headers = {"Content-Type": "application/json"}
-
+    # 使用新的LLM客户端
+    llm_client = LLMClient(config)
+    
     try:
-        if config['model'] == 'gemini':
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={config['api_key']}"
-            payload = {"contents": [{"parts": [{"text": prompt}]}]}
-            res = requests.post(url, headers=headers, json=payload, timeout=30)
-            
-            if res.status_code == 200:
-                response_data = res.json()
-                text = response_data["candidates"][0]["content"]["parts"][0]["text"]
-            else:
-                return {"error": f"API请求失败: {res.status_code}", "raw": res.text}
-                
-        elif config['model'] == 'deepseek':
-            url = "https://api.deepseek.com/chat/completions"
-            payload = {
-                "model": "deepseek-chat",
-                "messages": [{"role": "user", "content": prompt}]
-            }
-            headers["Authorization"] = f"Bearer {config['api_key']}"
-            res = requests.post(url, headers=headers, json=payload, timeout=30)
-            
-            if res.status_code == 200:
-                response_data = res.json()
-                text = response_data['choices'][0]['message']['content']
-            else:
-                return {"error": f"API请求失败: {res.status_code}", "raw": res.text}
-        else:
-            return {"error": "不支持的模型类型"}
-
+        # 调用LLM生成回复
+        result = llm_client.generate(prompt)
+        
+        if not result.get('success'):
+            return {"error": result.get('error', '未知LLM错误')}
+        
+        text = result['text']
+        
         # 尝试解析JSON
         try:
             # 清理可能的markdown标记
@@ -107,20 +89,21 @@ def analyze_event(summary, description, config, start_time=None, end_time=None, 
                 text = text[:-3]
             text = text.strip()
             
-            result = json.loads(text)
+            parsed_result = json.loads(text)
             
             # 验证必需字段
             required_fields = ['task', 'important', 'need_remind', 'minutes_before_remind']
             for field in required_fields:
-                if field not in result:
-                    result[field] = False if field in ['important', 'need_remind'] else 15
+                if field not in parsed_result:
+                    parsed_result[field] = False if field in ['important', 'need_remind'] else 15
+            
+            # 添加LLM提供商信息用于调试
+            parsed_result['_llm_info'] = llm_client.get_provider_info()
                     
-            return result
+            return parsed_result
             
         except json.JSONDecodeError as e:
             return {"error": f"JSON解析失败: {e}", "raw": text}
             
-    except requests.RequestException as e:
-        return {"error": f"网络请求失败: {e}"}
     except Exception as e:
-        return {"error": f"未知错误: {e}"}
+        return {"error": f"分析失败: {e}"}

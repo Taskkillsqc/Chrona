@@ -2,7 +2,16 @@
 
 Chrona 是一个基于 LLM 的智能日程提醒助手。
 
-## 🆕 v2.0 新功能亮点
+## 🆕 v3.0 新功能亮点
+
+- 🤖 **LLM 多提供商支持**: 支持 Gemini、DeepSeek、OpenAI 和自定义 API 端点
+- 🔧 **灵活的模型配置**: 用户可自定义 API URL、模型名称和请求参数
+- ⚡ **统一的 LLM 接口**: 通过统一接口调用不同的 LLM 提供商
+- 🎛️ **高级参数控制**: 支持温度、最大令牌数、top-p 等参数调整
+- 🔗 **自定义 API 支持**: 兼容任何 OpenAI 格式的 API 端点
+- 🔄 **向后兼容**: 完全兼容 v2.x 配置文件
+
+## 🆕 v2.0 功能特性
 
 - 💗 **心跳包监控**: 支持向 Uptime Kuma、Healthchecks.io 等监控服务发送状态更新
 - 🌐 **完整REST API**: 提供丰富的HTTP接口，支持远程监控和控制
@@ -359,27 +368,87 @@ webhook_type: "generic"
 - 包含完整事件和分析信息
 - 易于集成其他服务
 
-## 🔧 API 配置
+## 🔧 LLM API 配置
 
-### Gemini API
+### V3.0 新配置方式（推荐）
+
+#### Gemini API
 
 1. 访问 [Google AI Studio](https://makersuite.google.com/app/apikey)
 2. 创建 API 密钥
 3. 在配置文件中设置：
    ```yaml
-   model: gemini
-   api_key: "your-gemini-api-key"
+   llm:
+     provider: "gemini"
+     api_key: "your-gemini-api-key"
+     parameters:
+       temperature: 0.7  # 创造性参数
+       max_tokens: 1000  # 最大令牌数
+       top_p: 0.9       # 核采样参数
    ```
 
-### DeepSeek API
+#### DeepSeek API
 
 1. 访问 [DeepSeek 控制台](https://platform.deepseek.com/api_keys)
 2. 创建 API 密钥
 3. 在配置文件中设置：
    ```yaml
-   model: deepseek
-   api_key: "your-deepseek-api-key"
+   llm:
+     provider: "deepseek"
+     api_key: "your-deepseek-api-key"
+     parameters:
+       temperature: 0.7
+       max_tokens: 1000
    ```
+
+#### OpenAI API
+
+1. 访问 [OpenAI 控制台](https://platform.openai.com/api-keys)
+2. 创建 API 密钥
+3. 在配置文件中设置：
+   ```yaml
+   llm:
+     provider: "openai"
+     api_key: "your-openai-api-key"
+     parameters:
+       temperature: 0.7
+       max_tokens: 1000
+       top_p: 0.9
+   ```
+
+#### 自定义 API
+
+支持任何兼容 OpenAI 格式的 API：
+```yaml
+llm:
+  provider: "custom"
+  custom:
+    enabled: true
+    url: "https://your-api-endpoint.com/v1/chat/completions"
+    model: "your-model-name"
+    headers:
+      Authorization: "Bearer your-api-key"
+    payload_format: "openai"
+    response_format: "openai"
+    timeout: 30
+  parameters:
+    temperature: 0.7
+    max_tokens: 1000
+```
+
+### 向后兼容配置
+
+#### 传统 Gemini 配置
+```yaml
+model: gemini
+api_key: "your-gemini-api-key"
+```
+
+#### 传统 DeepSeek 配置
+```yaml
+model: deepseek
+api_key: "your-deepseek-api-key"
+```
 
 ## 📱 Gotify 通知服务配置
 
@@ -872,3 +941,101 @@ MIT License
 ---
 
 **🎉 Chrona v2.0 - 让您的日程管理更智能、更可靠！**
+
+## 🚀 v3.0 LLM 配置快速指南
+
+### 🤖 支持的 LLM提供商
+
+#### 1. Gemini（Google）
+```yaml
+llm:
+  provider: "gemini"
+  api_key: "your-gemini-api-key"
+  parameters:
+    temperature: 0.7
+    max_tokens: 1000
+    top_p: 0.9
+```
+
+#### 2. DeepSeek
+```yaml
+llm:
+  provider: "deepseek"
+  api_key: "your-deepseek-api-key"
+  parameters:
+    temperature: 0.7
+    max_tokens: 1000
+```
+
+#### 3. OpenAI
+```yaml
+llm:
+  provider: "openai"
+  api_key: "your-openai-api-key"
+  parameters:
+    temperature: 0.7
+    max_tokens: 1000
+    top_p: 0.9
+```
+
+#### 4. 自定义 API（兼容 OpenAI 格式）
+```yaml
+llm:
+  provider: "custom"
+  custom:
+    enabled: true
+    url: "https://your-custom-api.com/v1/chat/completions"
+    model: "your-model-name"
+    headers:
+      Authorization: "Bearer your-api-key"
+    payload_format: "openai"  # 或 "custom"
+    response_format: "openai"  # 或 "custom"
+    timeout: 30
+  parameters:
+    temperature: 0.7
+    max_tokens: 1000
+    top_p: 0.9
+```
+
+### 🔧 高级配置示例
+
+#### 使用本地 Ollama
+```yaml
+llm:
+  provider: "custom"
+  custom:
+    enabled: true
+    url: "http://localhost:11434/v1/chat/completions"
+    model: "llama2"
+    headers: {}
+    payload_format: "openai"
+    response_format: "openai"
+  parameters:
+    temperature: 0.7
+    max_tokens: 1000
+```
+
+#### 使用其他兼容服务
+```yaml
+llm:
+  provider: "custom"
+  custom:
+    enabled: true
+    url: "https://api.anthropic.com/v1/messages"
+    model: "claude-3-sonnet-20240229"
+    headers:
+      Authorization: "Bearer your-anthropic-key"
+      anthropic-version: "2023-06-01"
+    payload_format: "custom"
+    response_format: "custom"
+```
+
+### 🔄 向后兼容配置
+
+如果你使用的是 v2.x 配置，无需修改：
+```yaml
+model: gemini  # 仍然支持
+api_key: "your-api-key-here"
+```
+
+新的 v3.0 会自动将其转换为新格式。

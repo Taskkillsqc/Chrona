@@ -5,8 +5,37 @@
 # 基础配置
 # ============================================
 
-model: gemini     # AI模型选择: gemini 或 deepseek
-api_key: "your-api-key-here"  # 从 Google AI Studio 或 DeepSeek 控制台获取
+# ============================================
+# 基础配置
+# ============================================
+
+# LLM 配置 - V3 增强版
+llm:
+  # 预设模型配置（推荐）
+  provider: "gemini"  # 支持: gemini, deepseek, openai, custom
+  api_key: "your-api-key-here"
+  
+  # 自定义配置（高级用户）
+  custom:
+    enabled: false  # 是否启用自定义配置
+    url: "https://your-custom-llm-api.com/v1/chat/completions"  # 自定义API端点
+    model: "your-model-name"  # 自定义模型名称
+    headers:  # 自定义请求头
+      Authorization: "Bearer your-api-key"
+      # Content-Type: "application/json"  # 默认已包含
+    payload_format: "openai"  # 请求格式: openai, custom
+    response_format: "openai"  # 响应格式: openai, custom
+    timeout: 30  # 请求超时时间（秒）
+  
+  # 高级参数
+  parameters:
+    temperature: 0.7  # 创造性参数 (0.0-2.0)
+    max_tokens: 1000  # 最大令牌数
+    top_p: 0.9  # 核采样参数
+    
+# 向后兼容的旧配置（仍然支持）
+model: gemini     # 如果没有llm配置，会使用这个
+api_key: "your-api-key-here"  # 如果没有llm配置，会使用这个
 
 # CalDAV 服务配置
 caldav:

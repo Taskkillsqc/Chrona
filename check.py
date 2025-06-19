@@ -31,6 +31,7 @@ def check_files():
         'caldav_client/client.py',
         'ai/__init__.py',
         'ai/analyzer.py',
+        'ai/llm_client.py',
         'memory/__init__.py',
         'memory/database.py',
         'services/__init__.py',
@@ -113,14 +114,48 @@ def check_configuration():
         with open('config.yaml', 'r', encoding='utf-8') as f:
             config = yaml.safe_load(f)
         
-        required_keys = ['model', 'api_key', 'caldav', 'database', 'webhook_url']
+        # 检查必需的配置字段
+        required_keys = ['caldav', 'database', 'webhook_url']
         missing_keys = []
         
+        # 检查基础必需字段
         for key in required_keys:
             if key not in config or not config[key]:
                 missing_keys.append(key)
             else:
                 print(f"  ✅ {key}")
+        
+        # 检查 LLM 配置（新格式 V3）
+        llm_configured = False
+        if 'llm' in config:
+            llm_config = config['llm']
+            if llm_config.get('custom', {}).get('enabled', False):
+                # 自定义配置
+                if llm_config['custom'].get('url') and llm_config['custom'].get('model'):
+                    print(f"  ✅ llm (自定义配置: {llm_config['custom']['model']})")
+                    llm_configured = True
+                else:
+                    print(f"  ❌ llm 自定义配置不完整")
+            else:
+                # 预设配置
+                provider = llm_config.get('provider', 'gemini')
+                api_key = llm_config.get('api_key')
+                if api_key:
+                    print(f"  ✅ llm (提供商: {provider})")
+                    llm_configured = True
+                else:
+                    print(f"  ⚠️ llm 提供商 {provider} 的 API 密钥未配置")
+        
+        # 向后兼容：检查旧格式
+        if not llm_configured:
+            if config.get('model') and config.get('api_key'):
+                print(f"  ✅ llm (旧格式: {config['model']})")
+                llm_configured = True
+            elif config.get('model') or config.get('api_key'):
+                print(f"  ⚠️ 检测到不完整的旧格式配置，建议升级到新格式")
+        
+        if not llm_configured:
+            missing_keys.extend(['llm配置'])
         
         # 检查可选的 webhook_type 配置
         webhook_type = config.get('webhook_type', 'generic')
@@ -155,8 +190,14 @@ def check_configuration():
                 print(f"  - {key}")
             return False
         
-        # 检查API密钥是否为默认值
-        if config['api_key'] == 'your-api-key-here':
+        # 检查API密钥是否为默认值（支持新旧格式）
+        api_key_to_check = None
+        if 'llm' in config:
+            api_key_to_check = config['llm'].get('api_key')
+        elif 'api_key' in config:
+            api_key_to_check = config['api_key']
+        
+        if api_key_to_check == 'your-api-key-here':
             print("⚠️  请设置正确的API密钥")
             return False
         
