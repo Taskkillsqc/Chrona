@@ -236,7 +236,37 @@ class CalendarAgent:
             print(f"  ⚙️ 参数: 温度={params.get('temperature', 0.7)}, 最大令牌={params.get('max_tokens', 1000)}")
         
         print(f"  💾 数据库: {CONFIG.get('database', 'unknown')}")
-        print(f"  📅 CalDAV URL: {CONFIG.get('caldav', {}).get('url', 'unknown')}")
+        
+        # 显示 CalDAV 配置信息，支持不同格式
+        caldav_config = CONFIG.get('caldav', {})
+        if isinstance(caldav_config, list):
+            # 列表格式
+            if caldav_config:
+                print(f"  📅 CalDAV: {len(caldav_config)} 个提供商")
+                for i, provider in enumerate(caldav_config[:3]):  # 最多显示3个
+                    provider_name = provider.get('name', f'提供商{i+1}')
+                    print(f"    └─ {provider_name}: {provider.get('url', 'unknown')}")
+                if len(caldav_config) > 3:
+                    print(f"    └─ ... 还有 {len(caldav_config) - 3} 个提供商")
+            else:
+                print(f"  📅 CalDAV: 未配置")
+        elif isinstance(caldav_config, dict):
+            if 'providers' in caldav_config:
+                # 命名提供商格式
+                providers = caldav_config['providers']
+                print(f"  📅 CalDAV: {len(providers)} 个提供商")
+                for name, config in list(providers.items())[:3]:  # 最多显示3个
+                    print(f"    └─ {name}: {config.get('url', 'unknown')}")
+                if len(providers) > 3:
+                    print(f"    └─ ... 还有 {len(providers) - 3} 个提供商")
+            elif caldav_config.get('url'):
+                # 单个提供商格式
+                print(f"  📅 CalDAV: {caldav_config.get('url', 'unknown')}")
+            else:
+                print(f"  📅 CalDAV: 配置无效")
+        else:
+            print(f"  📅 CalDAV: 未配置")
+        
         print(f"  ⏱️ 获取间隔: {INTERVAL}秒")
         print(f"  🔔 提醒检查间隔: {REMIND_CHECK_INTERVAL}秒")
         print(f"  🗑️ 数据清理间隔: {CLEANUP_INTERVAL}秒")
