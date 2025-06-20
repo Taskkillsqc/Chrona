@@ -43,6 +43,7 @@ def send_gotify_notification(event, result, webhook_url):
                     "description": event.get('description', ''),
                     "start_time": event.get('start_time', ''),
                     "calendar_name": event.get('calendar_name', ''),
+                    "provider": event.get('provider', ''),
                     "uid": event.get('uid', '')
                 },
                 "analysis": result
@@ -83,6 +84,8 @@ def send_generic_notification(event, result, webhook_url):
                 "summary": event.get('summary', ''),
                 "description": event.get('description', ''),
                 "start_time": event.get('start_time', ''),
+                "calendar_name": event.get('calendar_name', ''),
+                "provider": event.get('provider', ''),
                 "uid": event.get('uid', '')
             },
             "analysis": result
@@ -132,7 +135,10 @@ def format_notification_body(event, result):
     
     # 日历信息
     if event.get('calendar_name'):
-        lines.append(f"📅 日历: {event['calendar_name']}")
+        calendar_info = event['calendar_name']
+        if event.get('provider'):
+            calendar_info += f" (来自 {event['provider']})"
+        lines.append(f"📅 日历: {calendar_info}")
     
     if event.get('description'):
         lines.append(f"📝 描述: {event['description']}")
@@ -159,6 +165,7 @@ def send_test_notification(webhook_url, webhook_type="generic", config=None):
         'description': '这是一个测试通知，用于验证Webhook是否正常工作',
         'start_time': datetime.now().isoformat(),
         'calendar_name': '测试日历',
+        'provider': '测试提供商',
         'uid': 'test-notification'
     }
     
@@ -201,6 +208,20 @@ def send_slack_notification(event, result, slack_webhook_url):
                 }
             ]
         }
+        
+        # 添加日历和提供商信息
+        calendar_info = event.get('calendar_name', '')
+        if event.get('provider'):
+            calendar_info += f" (来自 {event['provider']})"
+        
+        if calendar_info:
+            slack_data["blocks"].append({
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"*📅 日历:* {calendar_info}"
+                }
+            })
         
         if event.get('description'):
             slack_data["blocks"].append({
@@ -247,6 +268,7 @@ def send_custom_notification(event, result, webhook_url, config):
                 'end_time': event.get('end_time', ''),
                 'duration_minutes': event.get('duration_minutes', 0),
                 'calendar_name': event.get('calendar_name', ''),
+                'provider': event.get('provider', ''),
                 'uid': event.get('uid', '')
             },
             'analysis': {

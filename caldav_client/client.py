@@ -69,13 +69,12 @@ class CalDAVClient:
             
             for calendar in calendars:
                 try:
-                    # 获取日历名称，包含提供商信息
+                    # 获取日历名称，不包含提供商信息
                     calendar_name = "未知日历"
                     try:
-                        base_name = str(calendar.name) if hasattr(calendar, 'name') and calendar.name else calendar.canonical_url.split('/')[-2] if hasattr(calendar, 'canonical_url') else "未知日历"
-                        calendar_name = f"{base_name} ({self.provider_name})"
+                        calendar_name = str(calendar.name) if hasattr(calendar, 'name') and calendar.name else calendar.canonical_url.split('/')[-2] if hasattr(calendar, 'canonical_url') else "未知日历"
                     except:
-                        calendar_name = f"未知日历 ({self.provider_name})"
+                        calendar_name = "未知日历"
                     
                     self.logger.info(f"[{self.provider_name}] 正在处理日历: {calendar_name}")
                     

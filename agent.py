@@ -94,8 +94,8 @@ class CalendarAgent:
             
             print(f"📅 发现 {len(events)} 个即将到来的事件")                # 分析每个事件
             for i, event in enumerate(events, 1):
-                calendar_info = f" (来自: {event.get('calendar_name', '未知日历')})" if event.get('calendar_name') else ""
-                print(f"  🔍 分析事件 {i}/{len(events)}: {event.get('summary', '无标题')}{calendar_info}")
+                calendar_info = f" (来自: {event.get('calendar_name', '未知日历')}" if event.get('calendar_name') else ""
+                print(f"  🔍 分析事件 {i}/{len(events)}: {event.get('summary', '无标题')}{calendar_info},{event.get('provider', '未知提供商')})")
                 print(f"      时间: {event.get('start', '未知')}")
                 if event.get('duration_minutes'):
                     print(f"      时长: {event.get('duration_minutes')}分钟")
@@ -123,6 +123,7 @@ class CalendarAgent:
                 # 保存分析结果
                 if save_event_analysis(event, result):
                     print(f"    ✅ 分析完成 - 重要: {result.get('important', False)}, 需提醒: {result.get('need_remind', False)}")
+                    print(f"     提前时间: {result.get('minutes_before_remind', False)}分钟")
                 else:
                     print(f"    ❌ 保存分析结果失败")
                 
