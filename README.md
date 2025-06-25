@@ -10,7 +10,8 @@ Chrona 是一个基于 LLM 的智能日程提醒助手。
 - ⚡ **统一的 LLM 接口**: 通过统一接口调用不同的 LLM 提供商
 - 🎛️ **高级参数控制**: 支持温度、最大令牌数、top-p 等参数调整
 - 🔗 **自定义 API 支持**: 兼容任何 OpenAI 格式的 API 端点
-- 🔄 **向后兼容**: 完全兼容 v2.x 配置文件
+- � **创建事件API**: 通过REST API远程创建日程事件，支持指定提供商和日历
+- �🔄 **向后兼容**: 完全兼容 v2.x 配置文件
 
 ## 🆕 v2.0 功能特性
 
@@ -1038,9 +1039,49 @@ curl http://localhost:8000/heartbeat/status
 
 # 手动发送心跳包
 curl -X POST http://localhost:8000/heartbeat/send
+
+# 创建新的日程事件 🆕
+curl -X POST "http://localhost:8000/events/create" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "summary": "会议标题",
+    "start_time": "2025-06-25T14:30:00",
+    "duration_minutes": 60,
+    "provider_name": "iCloud",
+    "calendar_name": "工作",
+    "description": "会议描述"
+  }'
+
+# 最简单的创建事件（使用默认提供商和日历）
+curl -X POST "http://localhost:8000/events/create" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "summary": "会议标题",
+    "start_time": "2025-06-25T14:30:00",
+    "duration_minutes": 60
+  }'
+
+# 获取可用的提供商和日历
+curl http://localhost:8000/providers
+curl http://localhost:8000/calendars
 ```
 
-## 🔔 通知格式
+## � 创建事件API参数说明
+
+### 必填参数
+- `summary`: 事件标题
+- `start_time`: 开始时间（ISO格式，如 "2025-06-25T14:30:00"）
+- `duration_minutes`: 持续时间（分钟）
+
+### 可选参数
+- `provider_name`: 提供商名称（不指定时使用配置文件中的第一个提供商）
+- `calendar_name`: 日历名称（不指定时使用该提供商的第一个日历）
+- `description`: 事件描述
+
+### 默认行为
+> ⚠️ **重要**: 当不指定 `provider_name` 和 `calendar_name` 时，事件将被创建到配置文件中第一个提供商的第一个日历中。建议明确指定以确保事件创建到正确的位置。
+
+## �🔔 通知格式
 
 ### Gotify 格式
 ```json

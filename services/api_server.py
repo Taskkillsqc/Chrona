@@ -4,11 +4,27 @@ from pydantic import BaseModel
 from typing import Dict, List, Optional
 import threading
 import uvicorn
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from memory.database import get_stats, get_events_to_remind, get_recent_events
-from caldav_client.client import get_upcoming_events
+from caldav_client.client import get_upcoming_events, create_event, get_available_calendars
 from ai.analyzer import analyze_event
+
+class CreateEventRequest(BaseModel):
+    """创建事件请求模型"""
+    summary: str
+    start_time: str  # ISO格式时间字符串，如 "2025-06-25T14:30:00"
+    duration_minutes: int
+    provider_name: Optional[str] = None  # 提供商名称（可选）
+    calendar_name: Optional[str] = None  # 日历名称（可选）
+    description: Optional[str] = ""  # 事件描述（可选）
+
+class EventResponse(BaseModel):
+    """事件响应模型"""
+    success: bool
+    message: Optional[str] = None
+    error: Optional[str] = None
+    event: Optional[Dict] = None
 
 class APIServer:
     """API服务器"""
@@ -192,7 +208,103 @@ class APIServer:
                 }
             }
             return safe_config
-    
+        
+        @self.app.post("/events/create", response_model=EventResponse)
+        async def create_event_api(request: CreateEventRequest):
+            """创建新的日程事件"""
+            try:
+                # 验证输入
+                if not request.summary.strip():
+                    raise HTTPException(status_code=400, detail="事件标题不能为空")
+                
+                if request.duration_minutes <= 0:
+                    raise HTTPException(status_code=400, detail="持续时间必须大于0")
+                
+                # 验证时间格式
+                try:
+                    start_datetime = datetime.fromisoformat(request.start_time.replace('Z', '+00:00'))
+                except ValueError:
+                    raise HTTPException(status_code=400, detail="时间格式无效，请使用ISO格式，如：2025-06-25T14:30:00")
+                
+                # 检查时间是否在未来
+                if start_datetime <= datetime.now(start_datetime.tzinfo or None):
+                    raise HTTPException(status_code=400, detail="事件时间必须在未来")
+                
+                # 调用创建事件函数
+                result = create_event(
+                    caldav_config=self.app_config['caldav'],
+                    summary=request.summary,
+                    start_time=request.start_time,
+                    duration_minutes=request.duration_minutes,
+                    provider_name=request.provider_name,
+                    calendar_name=request.calendar_name,
+                    description=request.description
+                )
+                
+                if result["success"]:
+                    return EventResponse(
+                        success=True,
+                        message=result["message"],
+                        event=result["event"]
+                    )
+                else:
+                    raise HTTPException(status_code=400, detail=result["error"])
+                    
+            except HTTPException:
+                raise
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"创建事件时发生错误: {str(e)}")
+        
+        @self.app.get("/calendars")
+        async def get_calendars_api():
+            """获取所有可用的日历列表"""
+            try:
+                calendars = get_available_calendars(self.app_config['caldav'])
+                return {
+                    "calendars": calendars,
+                    "timestamp": datetime.now().isoformat()
+                }
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"获取日历列表失败: {str(e)}")
+        
+        @self.app.get("/providers")
+        async def get_providers_api():
+            """获取所有可用的CalDAV提供商"""
+            try:
+                caldav_config = self.app_config.get('caldav', {})
+                providers = []
+                
+                if isinstance(caldav_config, list):
+                    # 列表格式
+                    for i, provider in enumerate(caldav_config):
+                        provider_name = provider.get('name', f'提供商{i+1}')
+                        providers.append({
+                            "name": provider_name,
+                            "url": provider.get('url', 'unknown')
+                        })
+                elif isinstance(caldav_config, dict):
+                    if 'providers' in caldav_config:
+                        # 命名提供商格式
+                        for name, config in caldav_config['providers'].items():
+                            providers.append({
+                                "name": name,
+                                "url": config.get('url', 'unknown')
+                            })
+                    elif caldav_config.get('url'):
+                        # 单个提供商格式
+                        providers.append({
+                            "name": "默认CalDAV",
+                            "url": caldav_config.get('url', 'unknown')
+                        })
+                
+                return {
+                    "providers": providers,
+                    "count": len(providers),
+                    "timestamp": datetime.now().isoformat()
+                }
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"获取提供商列表失败: {str(e)}")
+
     def start(self):
         """启动API服务器"""
         if not self.enabled:

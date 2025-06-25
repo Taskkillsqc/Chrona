@@ -4,6 +4,9 @@ import logging
 import warnings
 import concurrent.futures
 import threading
+import uuid
+from icalendar import Calendar, Event
+import pytz
 
 # 抑制CalDAV兼容性警告
 logging.getLogger('root').setLevel(logging.WARNING)
@@ -153,6 +156,146 @@ class CalDAVClient:
         except Exception as e:
             self.logger.error(f"[{self.provider_name}] 获取事件失败: {e}")
             return []
+    
+    def create_event(self, summary, start_time, duration_minutes, calendar_name=None, description=""):
+        """创建日程事件
+        
+        Args:
+            summary: 事件标题
+            start_time: 开始时间 (datetime对象或ISO字符串)
+            duration_minutes: 持续时间（分钟）
+            calendar_name: 目标日历名称（可选，默认使用第一个日历）
+            description: 事件描述（可选）
+            
+        Returns:
+            dict: 创建结果
+        """
+        if not self.client:
+            if not self.connect():
+                return {
+                    "success": False,
+                    "error": f"无法连接到 {self.provider_name} CalDAV 服务器"
+                }
+        
+        try:
+            principal = self.client.principal()
+            calendars = principal.calendars()
+            
+            if not calendars:
+                return {
+                    "success": False,
+                    "error": f"{self.provider_name} 没有可用的日历"
+                }
+            
+            # 选择目标日历
+            target_calendar = None
+            if calendar_name:
+                # 按名称查找日历
+                for calendar in calendars:
+                    try:
+                        cal_name = str(calendar.name) if hasattr(calendar, 'name') and calendar.name else calendar.canonical_url.split('/')[-2] if hasattr(calendar, 'canonical_url') else "未知日历"
+                        if cal_name == calendar_name:
+                            target_calendar = calendar
+                            break
+                    except:
+                        continue
+                
+                if not target_calendar:
+                    return {
+                        "success": False,
+                        "error": f"在 {self.provider_name} 中找不到名为 '{calendar_name}' 的日历"
+                    }
+            else:
+                # 使用第一个日历
+                target_calendar = calendars[0]
+            
+            # 解析开始时间
+            if isinstance(start_time, str):
+                try:
+                    # 尝试解析ISO格式时间
+                    start_dt = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+                except ValueError:
+                    try:
+                        # 尝试解析标准格式
+                        start_dt = datetime.strptime(start_time, '%Y-%m-%d %H:%M:%S')
+                        # 假设是中国时区
+                        china_tz = pytz.timezone('Asia/Shanghai')
+                        start_dt = china_tz.localize(start_dt)
+                    except ValueError:
+                        return {
+                            "success": False,
+                            "error": f"无法解析时间格式: {start_time}"
+                        }
+            elif isinstance(start_time, datetime):
+                start_dt = start_time
+                # 如果没有时区信息，假设是中国时区
+                if start_dt.tzinfo is None:
+                    china_tz = pytz.timezone('Asia/Shanghai')
+                    start_dt = china_tz.localize(start_dt)
+            else:
+                return {
+                    "success": False,
+                    "error": "开始时间必须是datetime对象或ISO字符串"
+                }
+            
+            # 计算结束时间
+            end_dt = start_dt + timedelta(minutes=duration_minutes)
+            
+            # 创建iCalendar事件
+            cal = Calendar()
+            cal.add('prodid', '-//Chrona//Calendar Agent//CN')
+            cal.add('version', '2.0')
+            
+            event = Event()
+            event.add('uid', str(uuid.uuid4()))
+            event.add('summary', summary)
+            event.add('dtstart', start_dt)
+            event.add('dtend', end_dt)
+            event.add('dtstamp', datetime.now(pytz.UTC))
+            
+            if description:
+                event.add('description', description)
+            
+            cal.add_component(event)
+            
+            # 保存到CalDAV服务器
+            try:
+                # 使用CalDAV库的add_event方法
+                target_calendar.add_event(cal.to_ical())
+            except AttributeError:
+                # 如果add_event方法不存在，尝试使用save_event
+                event_url = f"{target_calendar.url.rstrip('/')}/{event['uid']}.ics"
+                target_calendar.save_event(cal.to_ical().decode('utf-8'), event_url)
+            
+            # 获取目标日历名称
+            try:
+                target_cal_name = str(target_calendar.name) if hasattr(target_calendar, 'name') and target_calendar.name else target_calendar.canonical_url.split('/')[-2] if hasattr(target_calendar, 'canonical_url') else "未知日历"
+            except:
+                target_cal_name = "未知日历"
+            
+            self.logger.info(f"[{self.provider_name}] 成功创建事件: {summary} 在日历 {target_cal_name}")
+            
+            return {
+                "success": True,
+                "message": f"事件已成功创建在 {self.provider_name} 的 {target_cal_name} 日历中",
+                "event": {
+                    "uid": str(event['uid']),
+                    "summary": summary,
+                    "start_time": start_dt.isoformat(),
+                    "end_time": end_dt.isoformat(),
+                    "duration_minutes": duration_minutes,
+                    "calendar_name": target_cal_name,
+                    "provider": self.provider_name,
+                    "description": description
+                }
+            }
+            
+        except Exception as e:
+            self.logger.error(f"[{self.provider_name}] 创建事件失败: {e}")
+            return {
+                "success": False,
+                "error": f"创建事件失败: {str(e)}"
+            }
 
 
 class MultiCalDAVClient:
@@ -248,6 +391,94 @@ class MultiCalDAVClient:
         
         self.logger.info(f"总共获取到 {len(all_events)} 个事件")
         return all_events
+    
+    def create_event(self, summary, start_time, duration_minutes, provider_name=None, calendar_name=None, description=""):
+        """在指定提供商和日历中创建事件
+        
+        Args:
+            summary: 事件标题
+            start_time: 开始时间
+            duration_minutes: 持续时间（分钟）
+            provider_name: 提供商名称（如果不指定则使用第一个）
+            calendar_name: 日历名称（可选）
+            description: 事件描述（可选）
+            
+        Returns:
+            dict: 创建结果
+        """
+        if not self.clients:
+            return {
+                "success": False,
+                "error": "没有可用的CalDAV客户端"
+            }
+        
+        # 选择目标客户端
+        target_client = None
+        if provider_name:
+            for client in self.clients:
+                if client.provider_name == provider_name:
+                    target_client = client
+                    break
+            
+            if not target_client:
+                return {
+                    "success": False,
+                    "error": f"找不到名为 '{provider_name}' 的提供商"
+                }
+        else:
+            # 使用第一个客户端
+            target_client = self.clients[0]
+        
+        # 调用客户端的创建方法
+        return target_client.create_event(summary, start_time, duration_minutes, calendar_name, description)
+    
+    def get_available_calendars(self):
+        """获取所有提供商的可用日历列表
+        
+        Returns:
+            dict: 按提供商分组的日历列表
+        """
+        calendars_by_provider = {}
+        
+        for client in self.clients:
+            try:
+                if not client.client:
+                    if not client.connect():
+                        calendars_by_provider[client.provider_name] = {
+                            "error": "连接失败",
+                            "calendars": []
+                        }
+                        continue
+                
+                principal = client.client.principal()
+                calendars = principal.calendars()
+                
+                calendar_list = []
+                for calendar in calendars:
+                    try:
+                        cal_name = str(calendar.name) if hasattr(calendar, 'name') and calendar.name else calendar.canonical_url.split('/')[-2] if hasattr(calendar, 'canonical_url') else "未知日历"
+                        calendar_list.append({
+                            "name": cal_name,
+                            "url": str(calendar.canonical_url) if hasattr(calendar, 'canonical_url') else "unknown"
+                        })
+                    except Exception as e:
+                        calendar_list.append({
+                            "name": "解析失败的日历",
+                            "error": str(e)
+                        })
+                
+                calendars_by_provider[client.provider_name] = {
+                    "calendars": calendar_list,
+                    "count": len(calendar_list)
+                }
+                
+            except Exception as e:
+                calendars_by_provider[client.provider_name] = {
+                    "error": str(e),
+                    "calendars": []
+                }
+        
+        return calendars_by_provider
 
 
 def get_upcoming_events(caldav_config, hours=24):
@@ -261,3 +492,46 @@ def get_upcoming_events(caldav_config, hours=24):
         logging.getLogger(__name__).warning(f"多提供商模式失败，尝试单提供商模式: {e}")
         client = CalDAVClient(caldav_config)
         return client.get_upcoming_events(hours)
+
+def create_event(caldav_config, summary, start_time, duration_minutes, provider_name=None, calendar_name=None, description=""):
+    """创建事件的便捷函数
+    
+    Args:
+        caldav_config: CalDAV配置
+        summary: 事件标题
+        start_time: 开始时间
+        duration_minutes: 持续时间（分钟）
+        provider_name: 提供商名称（可选）
+        calendar_name: 日历名称（可选）
+        description: 事件描述（可选）
+        
+    Returns:
+        dict: 创建结果
+    """
+    try:
+        multi_client = MultiCalDAVClient(caldav_config)
+        return multi_client.create_event(summary, start_time, duration_minutes, provider_name, calendar_name, description)
+    except Exception as e:
+        logging.getLogger(__name__).error(f"创建事件失败: {e}")
+        return {
+            "success": False,
+            "error": f"创建事件失败: {str(e)}"
+        }
+
+def get_available_calendars(caldav_config):
+    """获取可用日历的便捷函数
+    
+    Args:
+        caldav_config: CalDAV配置
+        
+    Returns:
+        dict: 按提供商分组的日历列表
+    """
+    try:
+        multi_client = MultiCalDAVClient(caldav_config)
+        return multi_client.get_available_calendars()
+    except Exception as e:
+        logging.getLogger(__name__).error(f"获取日历列表失败: {e}")
+        return {
+            "error": f"获取日历列表失败: {str(e)}"
+        }
