@@ -49,6 +49,25 @@ class APIServer:
         self.server_thread = None
         self.running = False
         
+        self._calendars_cache = None
+        self._calendars_cache_time = None
+        self._providers_cache = None
+        self._providers_cache_time = None
+        self._cache_ttl = 30  # 缓存有效期（秒），可根据需要调整
+        
+        self._upcoming_cache = None
+        self._upcoming_cache_time = None
+        self._recent_cache = None
+        self._recent_cache_time = None
+        self._reminders_cache = None
+        self._reminders_cache_time = None
+        self._stats_cache = None
+        self._stats_cache_time = None
+        self._heartbeat_status_cache = None
+        self._heartbeat_status_cache_time = None
+        self._config_cache = None
+        self._config_cache_time = None
+        
         self._setup_routes()
     
     def _setup_routes(self):
@@ -75,63 +94,80 @@ class APIServer:
         
         @self.app.get("/stats")
         async def get_statistics():
-            """获取统计信息"""
+            now = datetime.now()
+            if self._stats_cache and self._stats_cache_time and (now - self._stats_cache_time).total_seconds() < self._cache_ttl:
+                return self._stats_cache
             try:
                 stats = get_stats()
-                
-                # 添加心跳包状态
                 heartbeat_status = None
                 if self.heartbeat_sender:
                     heartbeat_status = self.heartbeat_sender.get_status()
-                
-                return {
+                result = {
                     "database_stats": stats,
                     "heartbeat_status": heartbeat_status,
-                    "timestamp": datetime.now().isoformat()
+                    "timestamp": now.isoformat()
                 }
+                self._stats_cache = result
+                self._stats_cache_time = now
+                return result
             except Exception as e:
                 raise HTTPException(status_code=500, detail=str(e))
-        
+
         @self.app.get("/events/upcoming")
         async def get_upcoming_events_api():
-            """获取即将到来的事件"""
+            now = datetime.now()
+            if self._upcoming_cache and self._upcoming_cache_time and (now - self._upcoming_cache_time).total_seconds() < self._cache_ttl:
+                return self._upcoming_cache
             try:
                 events = get_upcoming_events(self.app_config['caldav'])
-                return {
+                result = {
                     "events": events,
                     "count": len(events),
-                    "timestamp": datetime.now().isoformat()
+                    "timestamp": now.isoformat()
                 }
+                self._upcoming_cache = result
+                self._upcoming_cache_time = now
+                return result
             except Exception as e:
                 raise HTTPException(status_code=500, detail=str(e))
-        
+
         @self.app.get("/events/recent")
         async def get_recent_events_api(limit: int = 10):
-            """获取最近的事件"""
+            now = datetime.now()
+            if self._recent_cache and self._recent_cache_time and (now - self._recent_cache_time).total_seconds() < self._cache_ttl and self._recent_cache.get("limit") == limit:
+                return self._recent_cache
             try:
                 events = get_recent_events(limit)
-                return {
+                result = {
                     "events": events,
                     "count": len(events),
                     "limit": limit,
-                    "timestamp": datetime.now().isoformat()
+                    "timestamp": now.isoformat()
                 }
+                self._recent_cache = result
+                self._recent_cache_time = now
+                return result
             except Exception as e:
                 raise HTTPException(status_code=500, detail=str(e))
-        
+
         @self.app.get("/events/reminders")
         async def get_reminder_events():
-            """获取需要提醒的事件"""
+            now = datetime.now()
+            if self._reminders_cache and self._reminders_cache_time and (now - self._reminders_cache_time).total_seconds() < self._cache_ttl:
+                return self._reminders_cache
             try:
                 events = get_events_to_remind()
-                return {
+                result = {
                     "events": events,
                     "count": len(events),
-                    "timestamp": datetime.now().isoformat()
+                    "timestamp": now.isoformat()
                 }
+                self._reminders_cache = result
+                self._reminders_cache_time = now
+                return result
             except Exception as e:
                 raise HTTPException(status_code=500, detail=str(e))
-        
+
         @self.app.post("/heartbeat/send")
         async def send_heartbeat_manual(background_tasks: BackgroundTasks):
             """手动发送心跳包"""
@@ -151,47 +187,21 @@ class APIServer:
         
         @self.app.get("/heartbeat/status")
         async def get_heartbeat_status():
-            """获取心跳包状态"""
+            now = datetime.now()
+            if self._heartbeat_status_cache and self._heartbeat_status_cache_time and (now - self._heartbeat_status_cache_time).total_seconds() < self._cache_ttl:
+                return self._heartbeat_status_cache
             if not self.heartbeat_sender:
                 return {"enabled": False, "message": "心跳包功能未配置"}
-            
-            return self.heartbeat_sender.get_status()
-        
-        @self.app.post("/agent/fetch")
-        async def trigger_fetch(background_tasks: BackgroundTasks):
-            """手动触发事件获取和分析"""
-            if not self.calendar_agent:
-                raise HTTPException(status_code=400, detail="日程代理未配置")
-            
-            def fetch_events():
-                self.calendar_agent.fetch_and_analyze_events()
-            
-            background_tasks.add_task(fetch_events)
-            
-            return {
-                "message": "事件获取和分析已触发",
-                "timestamp": datetime.now().isoformat()
-            }
-        
-        @self.app.post("/agent/check-reminders")
-        async def trigger_reminder_check(background_tasks: BackgroundTasks):
-            """手动触发提醒检查"""
-            if not self.calendar_agent:
-                raise HTTPException(status_code=400, detail="日程代理未配置")
-            
-            def check_reminders():
-                self.calendar_agent.check_and_send_reminders()
-            
-            background_tasks.add_task(check_reminders)
-            
-            return {
-                "message": "提醒检查已触发",
-                "timestamp": datetime.now().isoformat()
-            }
-        
+            result = self.heartbeat_sender.get_status()
+            self._heartbeat_status_cache = result
+            self._heartbeat_status_cache_time = now
+            return result
+
         @self.app.get("/config")
         async def get_config():
-            """获取配置信息（隐藏敏感信息）"""
+            now = datetime.now()
+            if self._config_cache and self._config_cache_time and (now - self._config_cache_time).total_seconds() < self._cache_ttl:
+                return self._config_cache
             safe_config = {
                 "model": self.app_config.get('model'),
                 "database": self.app_config.get('database'),
@@ -207,6 +217,8 @@ class APIServer:
                     "interval": self.app_config.get('heartbeat', {}).get('interval', 60)
                 }
             }
+            self._config_cache = safe_config
+            self._config_cache_time = now
             return safe_config
         
         @self.app.post("/events/create", response_model=EventResponse)
@@ -257,25 +269,32 @@ class APIServer:
         
         @self.app.get("/calendars")
         async def get_calendars_api():
-            """获取所有可用的日历列表"""
+            """获取所有可用的日历列表（带缓存）"""
+            now = datetime.now()
+            if self._calendars_cache and self._calendars_cache_time and (now - self._calendars_cache_time).total_seconds() < self._cache_ttl:
+                return self._calendars_cache
             try:
                 calendars = get_available_calendars(self.app_config['caldav'])
-                return {
+                result = {
                     "calendars": calendars,
-                    "timestamp": datetime.now().isoformat()
+                    "timestamp": now.isoformat()
                 }
+                self._calendars_cache = result
+                self._calendars_cache_time = now
+                return result
             except Exception as e:
                 raise HTTPException(status_code=500, detail=f"获取日历列表失败: {str(e)}")
-        
+
         @self.app.get("/providers")
         async def get_providers_api():
-            """获取所有可用的CalDAV提供商"""
+            """获取所有可用的CalDAV提供商（带缓存）"""
+            now = datetime.now()
+            if self._providers_cache and self._providers_cache_time and (now - self._providers_cache_time).total_seconds() < self._cache_ttl:
+                return self._providers_cache
             try:
                 caldav_config = self.app_config.get('caldav', {})
                 providers = []
-                
                 if isinstance(caldav_config, list):
-                    # 列表格式
                     for i, provider in enumerate(caldav_config):
                         provider_name = provider.get('name', f'提供商{i+1}')
                         providers.append({
@@ -284,24 +303,24 @@ class APIServer:
                         })
                 elif isinstance(caldav_config, dict):
                     if 'providers' in caldav_config:
-                        # 命名提供商格式
                         for name, config in caldav_config['providers'].items():
                             providers.append({
                                 "name": name,
                                 "url": config.get('url', 'unknown')
                             })
                     elif caldav_config.get('url'):
-                        # 单个提供商格式
                         providers.append({
                             "name": "默认CalDAV",
                             "url": caldav_config.get('url', 'unknown')
                         })
-                
-                return {
+                result = {
                     "providers": providers,
                     "count": len(providers),
-                    "timestamp": datetime.now().isoformat()
+                    "timestamp": now.isoformat()
                 }
+                self._providers_cache = result
+                self._providers_cache_time = now
+                return result
             except Exception as e:
                 raise HTTPException(status_code=500, detail=f"获取提供商列表失败: {str(e)}")
 
