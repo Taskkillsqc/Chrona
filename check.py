@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Chrona v2.0 项目完整性检查
+Chrona v3.0 项目完整性检查
 验证项目是否已正确构建并可以使用
 """
 
@@ -38,7 +38,7 @@ def check_files():
         'services/heartbeat.py',
         'services/api_server.py',
         'services/notifier.py',
-        'api/api_server.py'
+        # 'api/api_server.py'
     ]
     
     missing_files = []
@@ -951,7 +951,7 @@ def check_caldav_config(config):
 
 def main():
     """主检查函数"""
-    print("🔍 Chrona v2.0 项目完整性检查")
+    print("🔍 Chrona v3.0 项目完整性检查")
     print("=" * 50)
     
     checks = [

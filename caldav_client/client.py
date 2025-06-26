@@ -244,7 +244,7 @@ class CalDAVClient:
             # 创建iCalendar事件
             cal = Calendar()
             cal.add('prodid', '-//Chrona//Calendar Agent//CN')
-            cal.add('version', '2.0')
+            cal.add('version', '3.0')
             
             event = Event()
             event.add('uid', str(uuid.uuid4()))

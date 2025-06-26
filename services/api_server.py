@@ -42,7 +42,7 @@ class APIServer:
         self.app = FastAPI(
             title="Chrona API",
             description="智能日程管理系统API",
-            version="2.0.0"
+            version="3.0.0"
         )
         
         self.server = None
@@ -78,7 +78,7 @@ class APIServer:
             """根路径"""
             return {
                 "message": "Chrona API",
-                "version": "2.0.0",
+                "version": "3.0.0",
                 "status": "running",
                 "timestamp": datetime.now().isoformat()
             }
@@ -197,6 +197,38 @@ class APIServer:
             self._heartbeat_status_cache_time = now
             return result
 
+        @self.app.post("/agent/fetch")
+        async def trigger_fetch(background_tasks: BackgroundTasks):
+            """手动触发事件获取和分析"""
+            if not self.calendar_agent:
+                raise HTTPException(status_code=400, detail="日程代理未配置")
+            
+            def fetch_events():
+                self.calendar_agent.fetch_and_analyze_events()
+            
+            background_tasks.add_task(fetch_events)
+            
+            return {
+                "message": "事件获取和分析已触发",
+                "timestamp": datetime.now().isoformat()
+            }
+        
+        @self.app.post("/agent/check-reminders")
+        async def trigger_reminder_check(background_tasks: BackgroundTasks):
+            """手动触发提醒检查"""
+            if not self.calendar_agent:
+                raise HTTPException(status_code=400, detail="日程代理未配置")
+            
+            def check_reminders():
+                self.calendar_agent.check_and_send_reminders()
+            
+            background_tasks.add_task(check_reminders)
+            
+            return {
+                "message": "提醒检查已触发",
+                "timestamp": datetime.now().isoformat()
+            }
+        
         @self.app.get("/config")
         async def get_config():
             now = datetime.now()
