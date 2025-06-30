@@ -52,10 +52,10 @@ data/
 *.db
 *.log
 
-# Models (too large for git)
-models/*.gguf
-models/*.bin
-models/*.safetensors
+# Models
+models/**/*.gguf
+models/**/*.bin
+models/**/*.safetensors
 
 # Docker
 .dockerignore
@@ -63,3 +63,5 @@ models/*.safetensors
 # Backup files
 *.bak
 *.backup
+
+.yoyo/

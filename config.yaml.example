@@ -65,12 +65,12 @@ caldav:
 # caldav:
 #   providers:
 #     icloud:  # iCloud 日历
-#       url: "https://caldav.icloud.com"
+#       url: "https://caldav.icloud.com/"
 #       username: "your-icloud@icloud.com"
 #       password: "your-icloud-app-password"
 #     
 #     google:  # Google Calendar
-#       url: "https://apidata.googleusercontent.com/caldav/v2/your-email@gmail.com/events"
+#       url: "https://apidata.googleusercontent.com/caldav/v2/your-email@gmail.com/events/"
 #       username: "your-email@gmail.com"
 #       password: "your-google-app-password"
 #     
@@ -80,19 +80,24 @@ caldav:
 #       password: "your-outlook-password"
 #     
 #     custom:  # 自定义 CalDAV 服务
-#       url: "https://your-caldav-server.com"
+#       url: "https://your-caldav-server.com/"
 #       username: "your-username"
 #       password: "your-password"
 
 # 方式三：简化的列表配置格式
 # caldav:
 #   - name: "iCloud"
-#     url: "https://caldav.icloud.com"
+#     url: "https://caldav.icloud.com/"
 #     username: "your-icloud@icloud.com"
 #     password: "your-icloud-app-password"
 #   
 #   - name: "Google Calendar"
-#     url: "https://apidata.googleusercontent.com/caldav/v2/your-email@gmail.com/events"
+#     url: "https://apidata.googleusercontent.com/caldav/v2/your-email@gmail.com/events/"
+#     username: "your-email@gmail.com"
+#     password: "your-google-app-password"
+#
+#   - name: "Wecom Calendar"
+#     url: "https://caldav.wecom.work/calendar/"
 #     username: "your-email@gmail.com"
 #     password: "your-google-app-password"
 
