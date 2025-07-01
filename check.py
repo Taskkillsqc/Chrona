@@ -32,7 +32,6 @@ def check_files():
         'ai/__init__.py',
         'ai/analyzer.py',
         'ai/llm_client.py',
-        'memory/__init__.py',
         'memory/database.py',
         'services/__init__.py',
         'services/heartbeat.py',

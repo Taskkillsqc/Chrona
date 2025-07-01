@@ -17,6 +17,7 @@ Chrona 是一个基于 LLM 的智能日程提醒助手。
 
 - 💗 **心跳包监控**: 支持向 Uptime Kuma、Healthchecks.io 等监控服务发送状态更新
 - 🌐 **完整REST API**: 提供丰富的HTTP接口，支持远程监控和控制
+- 🌍 **CORS跨域支持**: 支持前端Web应用跨域访问，可配置允许的源和方法
 - 📊 **实时状态监控**: 通过API实时查看程序运行状态、统计信息和心跳包状态
 - 🔧 **远程操作**: 支持通过API远程触发事件获取、提醒检查等操作
 - 📚 **自动API文档**: 内置Swagger UI和ReDoc文档，开箱即用
@@ -35,6 +36,7 @@ Chrona 是一个基于 LLM 的智能日程提醒助手。
 - 🗂️ **多日历支持**: 自动识别和显示事件来源日历名称（如 iCloud 小日历）
 - 💗 **心跳包监控**: 定期向 Uptime Kuma 等监控服务发送状态更新
 - 🌐 **REST API**: 完整的 API 接口支持远程监控和控制
+- 🌍 **CORS 跨域**: 支持前端Web应用访问，灵活的跨域配置
 - 📊 **实时状态**: 自动生成 API 文档，支持实时查看程序状态
 
 ## 🚀 快速开始
@@ -136,6 +138,13 @@ Chrona 是一个基于 LLM 的智能日程提醒助手。
      enabled: true
      host: "0.0.0.0"
      port: 8000
+     # CORS跨域配置（前端Web应用必需）
+     cors:
+       enabled: true
+       allow_origins: ["*"]  # 开发环境，生产环境建议指定具体域名
+       allow_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+       allow_headers: ["*"]
+       allow_credentials: false
    ```
 
 4. **运行程序**
@@ -301,6 +310,32 @@ api:
   enabled: true
   host: "0.0.0.0"  # 允许外部访问，仅本地使用可设为 "127.0.0.1"
   port: 8000
+  # CORS跨域配置（前端Web应用必需）
+  cors:
+    enabled: true
+    allow_origins: ["*"]  # 开发环境：允许所有源
+    # 生产环境建议：
+    # allow_origins: ["http://localhost:3000", "https://yourdomain.com"]
+    allow_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+    allow_headers: ["*"]
+    allow_credentials: false
+```
+
+#### 🌍 CORS 配置说明
+
+**CORS (跨域资源共享)** 允许前端Web应用访问API接口：
+
+- **开发环境**: 使用 `allow_origins: ["*"]` 允许所有源访问
+- **生产环境**: 指定具体的前端域名以提高安全性
+- **认证应用**: 如需发送cookies或认证信息，设置 `allow_credentials: true`
+
+**常见前端配置示例**：
+```yaml
+# React/Vue.js 开发服务器
+allow_origins: ["http://localhost:3000", "http://localhost:8080"]
+
+# 生产环境
+allow_origins: ["https://app.yourdomain.com", "https://dashboard.yourdomain.com"]
 ```
 
 #### 访问 API 文档
@@ -325,8 +360,18 @@ curl http://localhost:8000/heartbeat/status
 # 手动发送心跳包
 curl -X POST http://localhost:8000/heartbeat/send
 
-# 手动触发事件获取
-curl -X POST http://localhost:8000/agent/fetch
+# 测试CORS预检请求
+curl -H "Origin: http://localhost:3000" \
+     -H "Access-Control-Request-Method: GET" \
+     -H "Access-Control-Request-Headers: X-Requested-With" \
+     -X OPTIONS \
+     http://localhost:8000/health
+
+# 前端JavaScript示例
+# fetch('http://localhost:8000/events/upcoming')
+#   .then(response => response.json())
+#   .then(data => console.log(data))
+#   .catch(error => console.error('Error:', error));
 ```
 
 ### 🧪 功能测试

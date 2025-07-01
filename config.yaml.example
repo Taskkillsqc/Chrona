@@ -170,6 +170,13 @@ api:
   enabled: true  # 是否启用API服务
   host: "0.0.0.0"  # 监听地址（0.0.0.0=所有接口，127.0.0.1=仅本地）
   port: 8000  # 监听端口
+  # CORS跨域配置（用于前端Web应用访问）
+  cors:
+    enabled: true  # 是否启用CORS
+    allow_origins: ["*"]  # 允许的源，生产环境建议指定具体域名如["http://localhost:3000", "https://yourdomain.com"]
+    allow_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]  # 允许的HTTP方法
+    allow_headers: ["*"]  # 允许的请求头
+    allow_credentials: false  # 是否允许携带凭据（cookies等）
 
 # ============================================
 # 配置说明和示例
@@ -230,4 +237,35 @@ api:
 # API文档：
 # - http://localhost:8000/docs    # Swagger UI 文档
 # - http://localhost:8000/redoc   # ReDoc 文档
+#
+# ============================================
+# CORS跨域配置说明
+# ============================================
+#
+# CORS (Cross-Origin Resource Sharing) 配置用于允许前端Web应用访问API：
+#
+# 开发环境配置：
+# cors:
+#   enabled: true
+#   allow_origins: ["*"]  # 允许所有源（仅开发环境推荐）
+#   allow_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+#   allow_headers: ["*"]
+#   allow_credentials: false
+#
+# 生产环境配置：
+# cors:
+#   enabled: true
+#   allow_origins: [
+#     "http://localhost:3000",      # 本地开发服务器
+#     "https://yourdomain.com",     # 生产域名
+#     "https://app.yourdomain.com"  # 应用子域名
+#   ]
+#   allow_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+#   allow_headers: ["Content-Type", "Authorization", "X-Requested-With"]
+#   allow_credentials: true  # 如果需要发送cookies或认证信息
+#
+# 注意事项：
+# - 生产环境中应避免使用 allow_origins: ["*"]
+# - 如果前端需要发送认证信息，设置 allow_credentials: true
+# - allow_headers 可以根据需要限制特定的请求头
 #

@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Dict, List, Optional
 import threading
@@ -45,6 +46,9 @@ class APIServer:
             version="3.0.0"
         )
         
+        # 配置CORS
+        self._setup_cors()
+        
         self.server = None
         self.server_thread = None
         self.running = False
@@ -69,6 +73,28 @@ class APIServer:
         self._config_cache_time = None
         
         self._setup_routes()
+    
+    def _setup_cors(self):
+        """配置CORS中间件"""
+        cors_config = self.config.get('cors', {})
+        if cors_config.get('enabled', False):
+            # 获取CORS配置参数
+            allow_origins = cors_config.get('allow_origins', ["*"])
+            allow_methods = cors_config.get('allow_methods', ["GET", "POST", "PUT", "DELETE", "OPTIONS"])
+            allow_headers = cors_config.get('allow_headers', ["*"])
+            allow_credentials = cors_config.get('allow_credentials', False)
+            
+            # 添加CORS中间件
+            self.app.add_middleware(
+                CORSMiddleware,
+                allow_origins=allow_origins,
+                allow_credentials=allow_credentials,
+                allow_methods=allow_methods,
+                allow_headers=allow_headers,
+            )
+            print(f"✅ CORS已启用 - 允许的源: {allow_origins}")
+        else:
+            print("⚠️  CORS未启用")
     
     def _setup_routes(self):
         """设置API路由"""
