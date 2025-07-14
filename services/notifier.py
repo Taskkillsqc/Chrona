@@ -248,6 +248,10 @@ def send_slack_notification(event, result, slack_webhook_url):
 def send_custom_notification(event, result, webhook_url, config):
     """发送自定义格式的Webhook通知"""
     try:
+        if config is None:
+            print("❌ 自定义 webhook 需要提供配置")
+            return False
+
         # 获取自定义配置
         webhook_config = config.get('webhook_custom', {})
         
